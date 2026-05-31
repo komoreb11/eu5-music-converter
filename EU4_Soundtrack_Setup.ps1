@@ -495,20 +495,7 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
     Write-Warn "Skipping conversion - install missing tools above"
 }
 
-# 4. Launch EU5
+# Done - game launched by launch.cmd via %*
 Write-Host ""
-# Read launch command from temp file (written by Steam's cmd /c)
-$cmdFile = "$env:TEMP\eu5cmd.txt"
-if (-not $LaunchCmd -and (Test-Path $cmdFile)) {
-    $LaunchCmd = (Get-Content $cmdFile -Raw).Trim()
-    Remove-Item $cmdFile -EA SilentlyContinue
-}
-if ($LaunchCmd) {
-    Write-Status "Launching EU5..."
-    Invoke-Expression $LaunchCmd
-} else {
-    Write-Status "Launch EU5 from Steam."
-}
-
-Write-Host ""
-Start-Sleep -Seconds 3
+Write-Status "Setup complete. Game starting..."
+Start-Sleep -Seconds 1
