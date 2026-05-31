@@ -26,7 +26,7 @@ $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 $ModDir    = "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack"
 $BanksDir  = "$ModDir\loading_screen\sound\banks\windows"
 $MediaDir  = "$BanksDir\Media"
-$WwiseProjDir = "C:\sound2wem\eu4mod"
+$WwiseProjDir = "$ModDir\wwise_project"
 $WwiseTmpDir  = "$env:TEMP\eu4snd_wwise"
 $GitHubRaw = "https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main"
 
@@ -288,11 +288,7 @@ function Convert-Track([string]$OggPath, [string]$WemPath, [string]$WwiseConsole
 
     # Use existing Wwise project (must exist at $WwiseProjDir)
     $proj = "$WwiseProjDir\eu4mod.wproj"
-    if (-not (Test-Path $proj)) {
-        Write-Warn "Wwise project not found: $proj"
-        Write-Warn "Run build_mod.py once to create it, or check WwiseProjDir setting."
-        return $false
-    }
+    if (-not (Test-Path $proj)) { Write-Warn "Wwise project not found: $proj"; return $false }
 
     # wsources XML
     $wsourcesXml = ("<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n" +
@@ -333,7 +329,10 @@ function Sync-FromGitHub {
         "loading_screen/sound/banks/windows/eu4_soundtrack_media.bnk",
         "loading_screen/sound/banks/windows/SoundbanksInfo.json",
         ".metadata/metadata.json",
-        "descriptor.mod"
+        "descriptor.mod",
+        "wwise_project/eu4mod.wproj",
+        "wwise_project/Conversion Settings/Default Work Unit.wwu",
+        "wwise_project/Conversion Settings/Factory Conversion Settings.wwu"
     )
     $updated = 0
     foreach ($f in $files) {
