@@ -509,11 +509,17 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
     }
 } elseif (-not $eu4Path) {
     Write-Warn "Skipping conversion - EU4 not found"
+    Write-Host ""
+    Read-Host "Press Enter to close"
+    exit 1
 } else {
     Write-Warn "Skipping conversion - install missing tools above"
+    Write-Host ""
+    Read-Host "Press Enter to close"
+    exit 1
 }
 
 # Done - game launched by launch.cmd via %*
 Write-Host ""
 Write-Status "Setup complete. Game starting..."
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
