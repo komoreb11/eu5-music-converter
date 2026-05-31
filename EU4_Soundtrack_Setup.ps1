@@ -23,8 +23,8 @@ $ErrorActionPreference = "Continue"
 $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 
 # --- CONFIG ------------------------------------------------
-# Auto-detect any eu4_soundtrack Workshop mod (any ID)
-$ModDir = "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack"
+# Auto-detect eu4_soundtrack Workshop mod
+$ModDir = $null
 foreach ($steamDrive in @("E:","D:","C:")) {
     foreach ($steamLib in @("SteamLibrary","Program Files (x86)\Steam")) {
         $wBase = "$steamDrive\$steamLib\steamapps\workshop\content\3450310"
@@ -38,9 +38,15 @@ foreach ($steamDrive in @("E:","D:","C:")) {
                 }
             }
         }
-        if ($ModDir -ne "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack") { break }
+        if ($ModDir) { break }
     }
-    if ($ModDir -ne "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack") { break }
+    if ($ModDir) { break }
+}
+if (-not $ModDir) {
+    Write-Err "EU4 Soundtrack mod not found in Steam Workshop. Subscribe to the mod first."
+    Write-Host ""
+    Read-Host "Press Enter to close"
+    exit 1
 }
 $BanksDir  = "$ModDir\loading_screen\sound\banks\windows"
 $MediaDir  = "$BanksDir\Media"
