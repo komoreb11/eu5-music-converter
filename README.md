@@ -98,6 +98,8 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 
 **Music not playing** — Make sure the mod is enabled in the EU5 launcher and the first-time conversion completed successfully
 
+**Enabled mod in-game but music still not playing** — If you enabled the mod through the EU5 in-game mods menu (not the launcher), you must **fully restart the game** for the audio banks to load. Save and quit to desktop, then relaunch EU5.
+
 ---
 
 ## Legal
