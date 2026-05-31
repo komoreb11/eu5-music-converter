@@ -18,7 +18,7 @@ param([string]$LaunchCmd = "")
 $ErrorActionPreference = "Continue"
 $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 
-# ─── CONFIG ────────────────────────────────────────────────
+# --- CONFIG ------------------------------------------------
 $ModDir    = "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack"
 $BanksDir  = "$ModDir\loading_screen\sound\banks\windows"
 $MediaDir  = "$BanksDir\Media"
@@ -26,7 +26,7 @@ $WwiseProjDir = "$env:LOCALAPPDATA\eu4_soundtrack\wwise_proj"
 $WwiseTmpDir  = "$env:TEMP\eu4snd_wwise"
 $GitHubRaw = "https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main"
 
-# ─── TRACK LIST ────────────────────────────────────────────
+# --- TRACK LIST --------------------------------------------
 # Format: @(EventName, SourceOgg, DlcDir_or_$null)
 $Tracks = @(
     # Base game
@@ -222,7 +222,7 @@ $Tracks = @(
     ,@("MusicPlayer_eu4_ce_hungary_theme","music/hungary_theme.ogg","dlc140_central_europe_music_pack")
 )
 
-# ─── FUNCTIONS ─────────────────────────────────────────────
+# --- FUNCTIONS ---------------------------------------------
 
 function Write-Status($msg) { Write-Host "[EU4 Soundtrack] $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)     { Write-Host "[OK] $msg" -ForegroundColor Green }
@@ -305,7 +305,7 @@ function Convert-Track([string]$OggPath, [string]$WemPath, [string]$WwiseConsole
     $wsourcePath = "$WwiseTmpDir\$stem.wsources"
     $outDir      = "$WwiseTmpDir\${stem}_out"
 
-    # OGG → WAV
+    # OGG - WAV
     $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1
     if ($LASTEXITCODE -ne 0) { Write-Warn "ffmpeg failed for $stem"; return $false }
 
@@ -323,7 +323,7 @@ function Convert-Track([string]$OggPath, [string]$WemPath, [string]$WwiseConsole
         "</ExternalSourcesList>")
     $wsourcesXml | Set-Content $wsourcePath -Encoding UTF8
 
-    # WAV → WEM
+    # WAV - WEM
     New-Item -ItemType Directory -Force $outDir | Out-Null
     & $WwiseConsole convert-external-source $proj --source-file $wsourcePath --output $outDir --quiet 2>&1 | Out-Null
 
@@ -375,11 +375,11 @@ function Sync-FromGitHub {
     else { Write-Ok "All mod files up to date" }
 }
 
-# ─── MAIN ──────────────────────────────────────────────────
+# --- MAIN --------------------------------------------------
 
 Write-Host ""
 Write-Host "  EU4 Soundtrack for EU5" -ForegroundColor White
-Write-Host "  ─────────────────────" -ForegroundColor DarkGray
+Write-Host "  ---------------------" -ForegroundColor DarkGray
 Write-Host ""
 
 # 1. Sync bank files from GitHub
