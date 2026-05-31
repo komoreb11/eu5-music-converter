@@ -497,6 +497,12 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
 
 # 4. Launch EU5
 Write-Host ""
+# Read launch command from temp file (written by Steam's cmd /c)
+$cmdFile = "$env:TEMP\eu5cmd.txt"
+if (-not $LaunchCmd -and (Test-Path $cmdFile)) {
+    $LaunchCmd = (Get-Content $cmdFile -Raw).Trim()
+    Remove-Item $cmdFile -EA SilentlyContinue
+}
 if ($LaunchCmd) {
     Write-Status "Launching EU5..."
     Invoke-Expression $LaunchCmd
