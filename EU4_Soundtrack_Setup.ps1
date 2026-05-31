@@ -261,11 +261,15 @@ function Find-EU4Path {
 }
 
 function Find-WwiseConsole {
-    $akDir = "C:\Audiokinetic"
-    if (-not (Test-Path $akDir)) { return $null }
-    $exe = Get-ChildItem "$akDir\Wwise_*\Authoring\x64\Release\bin\WwiseConsole.exe" -EA SilentlyContinue |
-           Sort-Object Name -Descending | Select-Object -First 1
-    return $exe?.FullName
+    $searchDirs = @('C:\\Audiokinetic','D:\\Audiokinetic',
+        "$env:ProgramFiles\\Audiokinetic","${env:ProgramFiles(x86)}\\Audiokinetic")
+    foreach ($dir in $searchDirs) {
+        if (-not (Test-Path $dir)) { continue }
+        $exe = Get-ChildItem "$dir\\Wwise_*\\Authoring\\x64\\Release\\bin\\WwiseConsole.exe"
+                 -EA SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+        if ($exe) { return $exe.FullName }
+    }
+    return $null
 }
 
 function Find-Ogg([string]$SourceOgg, [string]$DlcDir, [string]$Eu4Path) {
@@ -392,9 +396,17 @@ if (-not $eu4Path) { Write-Warn "EU4 not found in common Steam paths. Set EU4 pa
 else { Write-Ok "EU4: $eu4Path" }
 
 $ffmpeg = Get-Command ffmpeg -EA SilentlyContinue
-if (-not $ffmpeg) { Write-Err "FFmpeg not found! Install: winget install ffmpeg  OR  download from ffmpeg.org" }
-else { Write-Ok "FFmpeg: $($ffmpeg.Source)" }
-
+if (-not $ffmpeg) {
+    $ffpaths = @("$env:ProgramFiles\\ffmpeg\\bin\\ffmpeg.exe",
+        'C:\\ffmpeg\\bin\\ffmpeg.exe','C:\\ffmpeg\\ffmpeg.exe')
+    foreach ($p in $ffpaths) { if (Test-Path $p) { $ffmpeg = Get-Item $p; break } }
+    if (-not $ffmpeg) {
+        $wg = "$env:LOCALAPPDATA\\Microsoft\\WinGet\\Packages"
+        if (Test-Path $wg) { $ffmpeg = Get-ChildItem "$wg\\Gyan.FFmpeg*\\**\\ffmpeg.exe" -Recurse -EA SilentlyContinue | Select-Object -First 1 }
+    }
+}
+if (-not $ffmpeg) { Write-Err 'FFmpeg not found! Run: winget install ffmpeg  OR add to PATH' }
+else { Write-Ok "FFmpeg found" }
 $wwiseConsole = Find-WwiseConsole
 if (-not $wwiseConsole) { Write-Err "Wwise not found! Download free from: https://audiokinetic.com/download/" }
 else { Write-Ok "Wwise: $wwiseConsole" }
