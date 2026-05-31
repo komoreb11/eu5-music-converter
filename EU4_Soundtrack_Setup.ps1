@@ -15,6 +15,10 @@
 
 param([string]$LaunchCmd = "")
 
+# Refresh PATH so winget-installed tools (ffmpeg etc.) are found
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
+            [System.Environment]::GetEnvironmentVariable("Path","User")
+
 $ErrorActionPreference = "Continue"
 $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 
