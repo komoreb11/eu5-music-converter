@@ -460,19 +460,19 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
             $wsPath  = "$tmpDir\$stem.wsources"
             $outDir  = "$tmpDir\out"
             try {
-                & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) { return $false }
+                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1
+                if ($LASTEXITCODE -ne 0) { return "ffmpeg failed (exit $LASTEXITCODE): $($r | Select-Object -Last 3 | Out-String)" }
                 $proj = "$WwiseProjDir\eu4mod.wproj"
-                if (-not (Test-Path $proj)) { return $false }
+                if (-not (Test-Path $proj)) { return "Wwise project not found: $proj" }
                 ("<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n" +
                  "<ExternalSourcesList SchemaVersion=`"1`" Root=`"$tmpDir`">`r`n" +
                  "    <Source Path=`"$stem.wav`" Conversion=`"Vorbis Quality High`"/>`r`n" +
                  "</ExternalSourcesList>") | Set-Content $wsPath -Encoding UTF8
                 New-Item -ItemType Directory -Force $outDir | Out-Null
                 $out = & $WwiseConsole convert-external-source $proj --source-file $wsPath --output $outDir 2>&1
-                if ($LASTEXITCODE -ne 0) { return $false }
+                if ($LASTEXITCODE -ne 0) { return "WwiseConsole failed (exit $LASTEXITCODE): $($out | Select-Object -Last 5 | Out-String)" }
                 $wem = Get-ChildItem $outDir -Recurse -Filter "*.wem" -EA SilentlyContinue | Select-Object -First 1
-                if (-not $wem) { return $false }
+                if (-not $wem) { return "WEM not found after conversion" }
                 Copy-Item $wem.FullName $WemPath -Force
                 return $true
             } finally {
@@ -496,7 +496,11 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
                 if ($j.Job.State -in 'Completed','Failed','Stopped') {
                     $result = Receive-Job $j.Job -EA SilentlyContinue
                     Remove-Job $j.Job -Force
-                    if ($result -eq $true) { $done++ } else { $failed++; Write-Warn "Failed: $($j.Name)" }
+                    if ($result -eq $true) { $done++ } else {
+                        $failed++
+                        Write-Warn "Failed: $($j.Name)"
+                        if ($result -and $result -ne $false) { Write-Host "  -> $result" -ForegroundColor DarkYellow }
+                    }
                 } else { $remaining += $j }
             }
             $jobs = $remaining
