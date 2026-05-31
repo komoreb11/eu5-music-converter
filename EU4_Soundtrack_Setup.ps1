@@ -23,15 +23,24 @@ $ErrorActionPreference = "Continue"
 $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 
 # --- CONFIG ------------------------------------------------
-# Detect Workshop mod path (preferred) or fall back to local
-$WorkshopBase = @(
-    "E:\SteamLibrary\steamapps\workshop\content\3450310\3736254075",
-    "D:\SteamLibrary\steamapps\workshop\content\3450310\3736254075",
-    "C:\Program Files (x86)\Steam\steamapps\workshop\content\3450310\3736254075"
-)
+# Auto-detect any eu4_soundtrack Workshop mod (any ID)
 $ModDir = "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack"
-foreach ($wp in $WorkshopBase) {
-    if (Test-Path "$wp\loading_screen") { $ModDir = $wp; break }
+foreach ($steamDrive in @("E:","D:","C:")) {
+    foreach ($steamLib in @("SteamLibrary","Program Files (x86)\Steam")) {
+        $wBase = "$steamDrive\$steamLib\steamapps\workshop\content\3450310"
+        if (-not (Test-Path $wBase)) { continue }
+        foreach ($wDir in (Get-ChildItem $wBase -Directory -EA SilentlyContinue)) {
+            $meta = "$($wDir.FullName)\.metadata\metadata.json"
+            if (Test-Path $meta) {
+                $json = Get-Content $meta -Raw -EA SilentlyContinue
+                if ($json -like '*"eu4_soundtrack"*') {
+                    $ModDir = $wDir.FullName; break
+                }
+            }
+        }
+        if ($ModDir -ne "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack") { break }
+    }
+    if ($ModDir -ne "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack") { break }
 }
 $BanksDir  = "$ModDir\loading_screen\sound\banks\windows"
 $MediaDir  = "$BanksDir\Media"
