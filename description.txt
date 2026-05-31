@@ -1,6 +1,6 @@
 Brings the music of Europa Universalis IV into EU5 — fully integrated into the game's dynamic music engine. War, peace, and cultural context all trigger the right tracks automatically, just like in the original games.
 
-[hr][/hr]
+[hr]
 
 [h2]What it does[/h2]
 
@@ -20,7 +20,7 @@ Brings the music of Europa Universalis IV into EU5 — fully integrated into the
 
 [quote]EU4 track names won't appear in the Music Player list. The music plays automatically in the background based on game state — you'll just hear it change. You can still skip to the next track using the [b]Next[/b] button in the Music Player. This is intentional to keep the mod multiplayer-compatible (no checksum change).[/quote]
 
-[hr][/hr]
+[hr]
 
 [h2]Requirements — read before installing[/h2]
 
@@ -37,7 +37,7 @@ Audio conversion tool. Install via terminal:
 [code]winget install ffmpeg[/code]
 Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
-[hr][/hr]
+[hr]
 
 [h2]Installation[/h2]
 
@@ -53,30 +53,29 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [b]All future launches[/b] — the check takes ~2 seconds. Only missing or new tracks are converted.
 
-[hr][/hr]
+[hr]
 
 [h2]How the music works[/h2]
 
 EU5 uses Wwise for its entire audio system. This mod patches the Wwise sound banks at the binary level — adding EU4 track references into EU5's existing WAR, PEACE, and cultural playlists. No EU5 tracks are replaced or removed.
 
-[table]
-[tr][th]Playlist[/th][th]Trigger[/th][th]EU4 tracks added[/th][/tr]
-[tr][td]WAR[/td][td]Player is at war[/td][td]+126 tracks[/td][/tr]
-[tr][td]PEACE[/td][td]Player is at peace[/td][td]+115 tracks[/td][/tr]
-[tr][td]European culture[/td][td]European nation[/td][td]+43 tracks[/td][/tr]
-[tr][td]Middle Eastern culture[/td][td]Ottoman/Persian/etc.[/td][td]+15 tracks[/td][/tr]
-[tr][td]East Asian culture[/td][td]Chinese/Japanese/etc.[/td][td]+13 tracks[/td][/tr]
-[tr][td]Indian culture[/td][td]Indian/Central Asian[/td][td]+5 tracks[/td][/tr]
-[tr][td]African culture[/td][td]African nations[/td][td]+4 tracks[/td][/tr]
-[tr][td]North American culture[/td][td]Native American[/td][td]+3 tracks[/td][/tr]
-[tr][td]South American culture[/td][td]Inca/South American[/td][td]+1 track[/td][/tr]
-[/table]
+[list]
+[*][b]WAR[/b] — +126 EU4 tracks (player at war)
+[*][b]PEACE[/b] — +115 EU4 tracks (player at peace)
+[*][b]European culture[/b] — +43 tracks
+[*][b]Middle Eastern culture[/b] (Ottoman/Persian/etc.) — +15 tracks
+[*][b]East Asian culture[/b] (Chinese/Japanese/etc.) — +13 tracks
+[*][b]Indian culture[/b] — +5 tracks
+[*][b]African culture[/b] — +4 tracks
+[*][b]North American culture[/b] — +3 tracks
+[*][b]South American culture[/b] — +1 track
+[/list]
 
 Neutral and discovery tracks appear in both WAR and PEACE playlists, so they play regardless of war state.
 
 Regional tracks (British, Ottoman, East Asian, etc.) are added to both the WAR/PEACE playlists and their matching cultural playlist — so they play roughly twice as often as neutral tracks for nations of that culture.
 
-[hr][/hr]
+[hr]
 
 [h2]Included DLCs[/h2]
 
@@ -86,7 +85,7 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 
 [b]Not included:[/b] Sabaton Soundtrack, Fredman's Epistles — these contain third-party licensed music and cannot be redistributed or converted.
 
-[hr][/hr]
+[hr]
 
 [h2]Troubleshooting[/h2]
 
@@ -103,11 +102,9 @@ E:\SteamLibrary\steamapps\common\Europa Universalis IV
 F:\SteamLibrary\steamapps\common\Europa Universalis IV[/code]
 Also checks Windows registry automatically.
 
-[b]Music not playing[/b] — Make sure the mod is enabled in the EU5 launcher and the first-time conversion completed successfully
+[b]Music not playing[/b] — Make sure the mod is enabled and the game was restarted after enabling it
 
-[b]Enabled mod in-game but music still not playing[/b] — If you enabled the mod through the EU5 in-game mods menu (not the launcher), you must [b]fully restart the game[/b] for the audio banks to load. Save and quit to desktop, then relaunch EU5.
-
-[hr][/hr]
+[hr]
 
 [h2]Legal[/h2]
 
