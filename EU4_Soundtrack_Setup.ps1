@@ -23,7 +23,16 @@ $ErrorActionPreference = "Continue"
 $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 
 # --- CONFIG ------------------------------------------------
-$ModDir    = "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack"
+# Detect Workshop mod path (preferred) or fall back to local
+$WorkshopBase = @(
+    "E:\SteamLibrary\steamapps\workshop\content\3450310\3736254075",
+    "D:\SteamLibrary\steamapps\workshop\content\3450310\3736254075",
+    "C:\Program Files (x86)\Steam\steamapps\workshop\content\3450310\3736254075"
+)
+$ModDir = "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack"
+foreach ($wp in $WorkshopBase) {
+    if (Test-Path "$wp\loading_screen") { $ModDir = $wp; break }
+}
 $BanksDir  = "$ModDir\loading_screen\sound\banks\windows"
 $MediaDir  = "$BanksDir\Media"
 $WwiseProjDir = "$ModDir\wwise_project"
