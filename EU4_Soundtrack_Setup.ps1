@@ -234,13 +234,14 @@ function Write-Warn($msg)   { Write-Host "[!]  $msg" -ForegroundColor Yellow }
 function Write-Err($msg)    { Write-Host "[X]  $msg" -ForegroundColor Red }
 
 function Get-WemId([string]$EventName) {
-    # FNV-1 hash of (EventName + "_wem").ToLower()
-    [uint32]$h = 2166136261
+    [uint64]$h = 2166136261
+    [uint64]$mask = 4294967295
+    [uint64]$mul  = 16777619
     foreach ($c in ($EventName + "_wem").ToLower().ToCharArray()) {
-        $h = [uint32](([uint64]$h * 16777619) -band 0xFFFFFFFF)
-        $h = $h -bxor [uint32][byte][char]$c
+        $h = ($h * $mul) -band $mask
+        $h = $h -bxor [uint64][byte][char]$c
     }
-    return $h
+    return [uint32]$h
 }
 
 function Find-EU4Path {
