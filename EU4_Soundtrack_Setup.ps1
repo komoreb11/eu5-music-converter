@@ -498,19 +498,12 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
 # 4. Launch EU5
 Write-Host ""
 if ($LaunchCmd) {
-    Write-Status "Launching EU5... ($LaunchCmd)"
-    # Try multiple launch methods
-    try {
-        # Method 1: Invoke directly (works when LaunchCmd is a simple path)
-        $exe = ($LaunchCmd -split '"')[1]
-        $args = $LaunchCmd.Substring($LaunchCmd.IndexOf('"', $LaunchCmd.IndexOf('"')+1)+1).Trim()
-        if ($exe -and (Test-Path $exe)) {
-            Start-Process -FilePath $exe -ArgumentList $args -WindowStyle Hidden
-        } else {
-            Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$LaunchCmd`"" -WindowStyle Hidden
-        }
-    } catch {
-        Start-Process -FilePath "cmd.exe" -ArgumentList "/c $LaunchCmd" -WindowStyle Hidden
+    Write-Status "Launching EU5..."
+    # Parse exe and args, launch directly (no cmd.exe = no extra window)
+    if ($LaunchCmd -match '^"([^"]+)"(.*)$') {
+        Start-Process -FilePath $Matches[1] -ArgumentList $Matches[2].Trim()
+    } elseif ($LaunchCmd -match '^(\S+)(.*)$') {
+        Start-Process -FilePath $Matches[1] -ArgumentList $Matches[2].Trim()
     }
 } else {
     Write-Status "Launch EU5 from Steam."
