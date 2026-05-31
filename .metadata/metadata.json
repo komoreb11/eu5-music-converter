@@ -1,0 +1,11 @@
+{
+	"name": "EU4 Soundtrack for EU5",
+	"id": "eu4_soundtrack",
+	"version": "1.0",
+	"game_id": "eu5",
+	"supported_game_version": "1.*",
+	"short_description": "Adds 100 tracks from Europa Universalis IV and its DLCs to EU5 music player.",
+	"tags": ["Music"],
+	"relationships": [],
+	"game_custom_data": {}
+}

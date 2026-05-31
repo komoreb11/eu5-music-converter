@@ -1,0 +1,12 @@
+# Generated audio files — run EU4_Soundtrack_Setup.ps1 to create these
+loading_screen/sound/banks/windows/Media/
+*.wem
+
+# Python cache (if build_mod.py ever used locally)
+__pycache__/
+*.pyc
+*.pyo
+
+# Temp files
+*.tmp
+_tmp_ogg/
