@@ -47,11 +47,11 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [code]cmd /c "curl -sL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/launch.cmd & call %TEMP%\eu4launch.cmd %command%"[/code]
 
-[b]Step 3.[/b] Launch EU5, go to the in-game mods menu, enable [b]EU4 Soundtrack for EU5[/b], then [b]restart the game[/b] for the mod to load.
+[b]Step 3.[/b] Launch EU5. A setup window will appear and convert all EU4 tracks (~2–5 minutes). The game starts automatically when done.
 
-[b]First launch after enabling[/b] — a setup window will appear and convert all EU4 tracks to the correct format. Takes about [b]2–5 minutes[/b]. The game will start automatically when it's done.
+[b]Step 4.[/b] Once in the game, open the mods menu → enable [b]EU4 Soundtrack for EU5[/b] → restart the game.
 
-[b]All future launches[/b] — the check takes ~2 seconds. Only missing or new tracks are converted.
+After the initial conversion the launch command is no longer required — the mod works without it. Keep it only if you want to automatically pick up new tracks when new EU4 DLCs are released.
 
 [hr]
 
