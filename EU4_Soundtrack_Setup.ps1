@@ -505,13 +505,12 @@ if ($LaunchCmd) {
         $exe = ($LaunchCmd -split '"')[1]
         $args = $LaunchCmd.Substring($LaunchCmd.IndexOf('"', $LaunchCmd.IndexOf('"')+1)+1).Trim()
         if ($exe -and (Test-Path $exe)) {
-            Start-Process -FilePath $exe -ArgumentList $args
+            Start-Process -FilePath $exe -ArgumentList $args -WindowStyle Hidden
         } else {
-            # Method 2: via cmd /c
-            Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$LaunchCmd`""
+            Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$LaunchCmd`"" -WindowStyle Hidden
         }
     } catch {
-        Start-Process -FilePath "cmd.exe" -ArgumentList "/c $LaunchCmd"
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c $LaunchCmd" -WindowStyle Hidden
     }
 } else {
     Write-Status "Launch EU5 from Steam."
