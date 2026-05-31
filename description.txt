@@ -51,7 +51,7 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [b]Step 4.[/b] Once in the game, open the mods menu → enable [b]EU4 Soundtrack for EU5[/b] → restart the game.
 
-After the initial conversion the launch command is no longer required — the mod works without it. Keep it only if you want to automatically pick up new added EU4 tracks. 
+After the initial conversion the launch command and the tools (Wwise, FFmpeg) are no longer required — the mod works without them. You can uninstall them, or keep them if you want the setup to automatically sync any new EU4 tracks added to your game folder.
 
 [hr]
 
