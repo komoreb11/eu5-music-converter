@@ -317,12 +317,10 @@ function Convert-Track([string]$OggPath, [string]$WemPath, [string]$WwiseConsole
     }
 
     # wsources XML
-    $wsourcesXml = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<ExternalSourcesList SchemaVersion="1" Root="$WwiseTmpDir">
-    <Source Path="$stem.wav" Conversion="Vorbis Quality High"/>
-</ExternalSourcesList>
-"@
+    $wsourcesXml = ("<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n" +
+        "<ExternalSourcesList SchemaVersion=`"1`" Root=`"$WwiseTmpDir`">`r`n" +
+        "    <Source Path=`"$stem.wav`" Conversion=`"Vorbis Quality High`"/>`r`n" +
+        "</ExternalSourcesList>")
     $wsourcesXml | Set-Content $wsourcePath -Encoding UTF8
 
     # WAV → WEM
