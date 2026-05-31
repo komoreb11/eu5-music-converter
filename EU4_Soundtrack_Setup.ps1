@@ -460,7 +460,7 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
             $wsPath  = "$tmpDir\$stem.wsources"
             $outDir  = "$tmpDir\out"
             try {
-                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1
+                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -af "loudnorm=I=-16:TP=-1.5:LRA=11" -acodec pcm_s16le $wavPath 2>&1
                 if ($LASTEXITCODE -ne 0) { return "ffmpeg failed (exit $LASTEXITCODE): $($r | Select-Object -Last 3 | Out-String)" }
                 $proj = "$WwiseProjDir\eu4mod.wproj"
                 if (-not (Test-Path $proj)) { return "Wwise project not found: $proj" }
