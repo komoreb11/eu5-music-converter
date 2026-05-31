@@ -302,12 +302,22 @@ function Convert-Track([string]$OggPath, [string]$WemPath, [string]$WwiseConsole
 
     # WAV - WEM
     New-Item -ItemType Directory -Force $outDir | Out-Null
-    & $WwiseConsole convert-external-source $proj --source-file $wsourcePath --output $outDir --quiet 2>&1 | Out-Null
+    $wwOut = & $WwiseConsole convert-external-source $proj --source-file $wsourcePath --output $outDir 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "WwiseConsole failed (exit $LASTEXITCODE) for $stem"
+        Write-Warn ($wwOut | Out-String)
+        return $false
+    }
 
-    # Find output WEM
+    # Find output WEM - search broadly
     $wem = Get-ChildItem "$outDir\Windows\*.wem" -EA SilentlyContinue | Select-Object -First 1
-    if (-not $wem) { $wem = Get-ChildItem "$outDir\**\*.wem" -Recurse -EA SilentlyContinue | Select-Object -First 1 }
-    if (-not $wem) { Write-Warn "WEM output not found for $stem"; return $false }
+    if (-not $wem) { $wem = Get-ChildItem "$outDir" -Recurse -Filter "*.wem" -EA SilentlyContinue | Select-Object -First 1 }
+    if (-not $wem) {
+        # Show what IS there for debugging
+        $files = Get-ChildItem $outDir -Recurse -EA SilentlyContinue | Select-Object -First 5
+        Write-Warn "WEM not found in $outDir. Contents: $($files.Name -join ', ')"
+        return $false
+    }
 
     Copy-Item $wem.FullName $WemPath -Force
     Remove-Item $wavPath,$wsourcePath -EA SilentlyContinue
