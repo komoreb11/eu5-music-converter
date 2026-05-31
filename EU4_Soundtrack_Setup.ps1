@@ -436,9 +436,9 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
         Write-Ok "Converted: $done  |  Skipped (no DLC): $($missing.Count - $done - $failed)  |  Failed: $failed"
     }
 } elseif (-not $eu4Path) {
-    Write-Warn "Skipping conversion — EU4 not found"
+    Write-Warn "Skipping conversion - EU4 not found"
 } else {
-    Write-Warn "Skipping conversion — install missing tools above"
+    Write-Warn "Skipping conversion - install missing tools above"
 }
 
 # 4. Launch EU5
