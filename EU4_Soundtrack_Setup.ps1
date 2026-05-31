@@ -499,11 +499,17 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
 Write-Host ""
 if ($LaunchCmd) {
     Write-Status "Launching EU5..."
-    # Parse exe and args, launch directly (no cmd.exe = no extra window)
+    # Debug: show what Steam passed
+    Write-Status "CMD: $LaunchCmd"
+    # Parse exe and args, launch directly
     if ($LaunchCmd -match '^"([^"]+)"(.*)$') {
+        Write-Status "EXE: $($Matches[1])"
         Start-Process -FilePath $Matches[1] -ArgumentList $Matches[2].Trim()
     } elseif ($LaunchCmd -match '^(\S+)(.*)$') {
+        Write-Status "EXE: $($Matches[1])"
         Start-Process -FilePath $Matches[1] -ArgumentList $Matches[2].Trim()
+    } else {
+        Write-Warn "Could not parse: $LaunchCmd"
     }
 } else {
     Write-Status "Launch EU5 from Steam."
