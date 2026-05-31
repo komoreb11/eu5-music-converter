@@ -499,7 +499,9 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
 Write-Host ""
 if ($LaunchCmd) {
     Write-Status "Launching EU5..."
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c $LaunchCmd"
+    # Pass Steam command directly - same as Barotrauma launcher approach
+    $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $LaunchCmd" -PassThru
+    Wait-Process -Id $proc.Id -EA SilentlyContinue
 } else {
     Write-Status "Launch EU5 from Steam."
 }
