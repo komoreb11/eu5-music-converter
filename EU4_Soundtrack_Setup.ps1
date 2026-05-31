@@ -411,26 +411,83 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
     if ($missing.Count -eq 0) {
         Write-Ok "All $($Tracks.Count) tracks ready!"
     } else {
-        Write-Status "Converting $($missing.Count) missing track(s)..."
-        $done = 0; $failed = 0
+        # Parallel conversion (N jobs = half of CPU cores, min 2, max 8)
+        $maxJobs = [Math]::Max(2, [Math]::Min(8, [Environment]::ProcessorCount / 2))
+        Write-Status "Converting $($missing.Count) missing track(s) ($maxJobs parallel jobs)..."
+
+        # Build work list (only tracks with OGG found)
+        $workList = @()
         foreach ($track in $missing) {
             $parts = $track -split "\|"
             $eventName = $parts[0]; $srcOgg = $parts[1]
             $dlcDir = if ($parts.Count -gt 2 -and $parts[2] -ne "") { $parts[2] } else { $null }
             $wemId   = Get-WemId $eventName
             $wemPath = "$MediaDir\$wemId.wem"
-            
             $oggPath = Find-Ogg $srcOgg $dlcDir $eu4Path
-            if (-not $oggPath) {
-                # DLC not installed - skip silently
-                continue
+            if ($oggPath) {
+                $workList += [PSCustomObject]@{
+                    EventName=$eventName; OggPath=$oggPath; WemPath=$wemPath
+                }
             }
-            
-            Write-Host "  Converting: $eventName" -ForegroundColor DarkCyan
-            $ok = Convert-Track $oggPath $wemPath $wwiseConsole
-            if ($ok) { $done++ } else { $failed++ }
         }
-        Write-Ok "Converted: $done  |  Skipped (no DLC): $($missing.Count - $done - $failed)  |  Failed: $failed"
+
+        # Parallel runner using jobs
+        $convertScript = {
+            param($OggPath, $WemPath, $WwiseConsole, $WwiseProjDir, $WwiseTmpDir)
+            $stem   = [System.IO.Path]::GetFileNameWithoutExtension($WemPath)
+            $jid    = [System.Threading.Thread]::CurrentThread.ManagedThreadId
+            $tmpDir = "$WwiseTmpDir\job_${jid}_$stem"
+            New-Item -ItemType Directory -Force $tmpDir | Out-Null
+            $wavPath = "$tmpDir\$stem.wav"
+            $wsPath  = "$tmpDir\$stem.wsources"
+            $outDir  = "$tmpDir\out"
+            try {
+                & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) { return $false }
+                $proj = "$WwiseProjDir\eu4mod.wproj"
+                if (-not (Test-Path $proj)) { return $false }
+                ("<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n" +
+                 "<ExternalSourcesList SchemaVersion=`"1`" Root=`"$tmpDir`">`r`n" +
+                 "    <Source Path=`"$stem.wav`" Conversion=`"Vorbis Quality High`"/>`r`n" +
+                 "</ExternalSourcesList>") | Set-Content $wsPath -Encoding UTF8
+                New-Item -ItemType Directory -Force $outDir | Out-Null
+                $out = & $WwiseConsole convert-external-source $proj --source-file $wsPath --output $outDir 2>&1
+                if ($LASTEXITCODE -ne 0) { return $false }
+                $wem = Get-ChildItem $outDir -Recurse -Filter "*.wem" -EA SilentlyContinue | Select-Object -First 1
+                if (-not $wem) { return $false }
+                Copy-Item $wem.FullName $WemPath -Force
+                return $true
+            } finally {
+                Remove-Item $tmpDir -Recurse -Force -EA SilentlyContinue
+            }
+        }
+
+        $jobs = @(); $done = 0; $failed = 0; $idx = 0
+        while ($idx -lt $workList.Count -or $jobs.Count -gt 0) {
+            # Start new jobs up to limit
+            while ($jobs.Count -lt $maxJobs -and $idx -lt $workList.Count) {
+                $item = $workList[$idx++]
+                Write-Host "  [+] $($item.EventName)" -ForegroundColor DarkCyan
+                $job = Start-Job -ScriptBlock $convertScript `
+                    -ArgumentList $item.OggPath,$item.WemPath,$wwiseConsole,$WwiseProjDir,$WwiseTmpDir
+                $jobs += [PSCustomObject]@{Job=$job; Name=$item.EventName}
+            }
+            # Check completed jobs
+            $remaining = @()
+            foreach ($j in $jobs) {
+                if ($j.Job.State -in 'Completed','Failed','Stopped') {
+                    $result = Receive-Job $j.Job -EA SilentlyContinue
+                    Remove-Job $j.Job -Force
+                    if ($result -eq $true) { $done++ } else { $failed++; Write-Warn "Failed: $($j.Name)" }
+                } else { $remaining += $j }
+            }
+            $jobs = $remaining
+            if ($jobs.Count -ge $maxJobs -or ($idx -ge $workList.Count -and $jobs.Count -gt 0)) {
+                Start-Sleep -Milliseconds 500
+            }
+        }
+        $skipped = $missing.Count - $workList.Count
+        Write-Ok "Done: $done  Failed: $failed  Skipped (no DLC): $skipped"
     }
 } elseif (-not $eu4Path) {
     Write-Warn "Skipping conversion - EU4 not found"
