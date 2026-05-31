@@ -26,7 +26,7 @@ $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 $ModDir    = "$env:USERPROFILE\Documents\Paradox Interactive\Europa Universalis V\mod\eu4_soundtrack"
 $BanksDir  = "$ModDir\loading_screen\sound\banks\windows"
 $MediaDir  = "$BanksDir\Media"
-$WwiseProjDir = "$env:LOCALAPPDATA\eu4_soundtrack\wwise_proj"
+$WwiseProjDir = "C:\sound2wem\eu4mod"
 $WwiseTmpDir  = "$env:TEMP\eu4snd_wwise"
 $GitHubRaw = "https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main"
 
@@ -286,11 +286,12 @@ function Convert-Track([string]$OggPath, [string]$WemPath, [string]$WwiseConsole
     $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1
     if ($LASTEXITCODE -ne 0) { Write-Warn "ffmpeg failed for $stem"; return $false }
 
-    # Ensure Wwise project exists
+    # Use existing Wwise project (must exist at $WwiseProjDir)
     $proj = "$WwiseProjDir\eu4mod.wproj"
     if (-not (Test-Path $proj)) {
-        New-Item -ItemType Directory -Force $WwiseProjDir | Out-Null
-        & $WwiseConsole create-new-project $proj --quiet 2>&1 | Out-Null
+        Write-Warn "Wwise project not found: $proj"
+        Write-Warn "Run build_mod.py once to create it, or check WwiseProjDir setting."
+        return $false
     }
 
     # wsources XML
