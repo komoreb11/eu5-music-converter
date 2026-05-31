@@ -449,24 +449,9 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
             }
         }
 
-        # Pre-measure loudness for all tracks (fast, sequential)
-        Write-Status "Measuring loudness levels..."
-        $loudnessMap = @{}
-        foreach ($item in $workList) {
-            $analysis = & ffmpeg -i $item.OggPath -af "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json" -f null - 2>&1
-            $js = $analysis -join "`n"
-            $loudnessMap[$item.OggPath] = @{
-                i      = if ($js -match '"input_i"\s*:\s*"([^"]+)"')      { $Matches[1] } else { "-16.0" }
-                tp     = if ($js -match '"input_tp"\s*:\s*"([^"]+)"')     { $Matches[1] } else { "-1.5"  }
-                lra    = if ($js -match '"input_lra"\s*:\s*"([^"]+)"')    { $Matches[1] } else { "11.0"  }
-                thresh = if ($js -match '"input_thresh"\s*:\s*"([^"]+)"') { $Matches[1] } else { "-26.0" }
-            }
-        }
-
         # Parallel runner using jobs
         $convertScript = {
-            param($OggPath, $WemPath, $WwiseConsole, $WwiseProjDir, $WwiseTmpDir,
-                  $LnI, $LnTP, $LnLRA, $LnThresh)
+            param($OggPath, $WemPath, $WwiseConsole, $WwiseProjDir, $WwiseTmpDir)
             $stem   = [System.IO.Path]::GetFileNameWithoutExtension($WemPath)
             $jid    = [System.Threading.Thread]::CurrentThread.ManagedThreadId
             $tmpDir = "$WwiseTmpDir\job_${jid}_$stem"
@@ -475,7 +460,14 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
             $wsPath  = "$tmpDir\$stem.wsources"
             $outDir  = "$tmpDir\out"
             try {
-                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -af "loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${LnI}:measured_TP=${LnTP}:measured_LRA=${LnLRA}:measured_thresh=${LnThresh}:linear=true" -acodec pcm_s16le $wavPath 2>&1
+                # Pass 1: measure loudness
+                $js = (& ffmpeg -i $OggPath -af "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json" -f null - 2>&1) -join "`n"
+                $ln_i      = if ($js -match '"input_i"\s*:\s*"([^"]+)"')      { $Matches[1] } else { "-16.0" }
+                $ln_tp     = if ($js -match '"input_tp"\s*:\s*"([^"]+)"')     { $Matches[1] } else { "-1.5"  }
+                $ln_lra    = if ($js -match '"input_lra"\s*:\s*"([^"]+)"')    { $Matches[1] } else { "11.0"  }
+                $ln_thresh = if ($js -match '"input_thresh"\s*:\s*"([^"]+)"') { $Matches[1] } else { "-26.0" }
+                # Pass 2: convert + normalize
+                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -af "loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${ln_i}:measured_TP=${ln_tp}:measured_LRA=${ln_lra}:measured_thresh=${ln_thresh}:linear=true" -acodec pcm_s16le $wavPath 2>&1
                 if ($LASTEXITCODE -ne 0) { return "ffmpeg failed (exit $LASTEXITCODE): $($r | Select-Object -Last 3 | Out-String)" }
                 $proj = "$WwiseProjDir\eu4mod.wproj"
                 if (-not (Test-Path $proj)) { return "Wwise project not found: $proj" }
@@ -501,10 +493,8 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
             while ($jobs.Count -lt $maxJobs -and $idx -lt $workList.Count) {
                 $item = $workList[$idx++]
                 Write-Host "  [+] $($item.EventName)" -ForegroundColor DarkCyan
-                $ln = $loudnessMap[$item.OggPath]
                 $job = Start-Job -ScriptBlock $convertScript `
-                    -ArgumentList $item.OggPath,$item.WemPath,$wwiseConsole,$WwiseProjDir,$WwiseTmpDir,`
-                                  $ln.i,$ln.tp,$ln.lra,$ln.thresh
+                    -ArgumentList $item.OggPath,$item.WemPath,$wwiseConsole,$WwiseProjDir,$WwiseTmpDir
                 $jobs += [PSCustomObject]@{Job=$job; Name=$item.EventName}
             }
             # Check completed jobs
