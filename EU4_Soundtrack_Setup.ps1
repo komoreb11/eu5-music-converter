@@ -265,12 +265,16 @@ function Find-EU4Path {
 }
 
 function Find-WwiseConsole {
-    $searchDirs = @('C:\\Audiokinetic','D:\\Audiokinetic',
-        "$env:ProgramFiles\\Audiokinetic","${env:ProgramFiles(x86)}\\Audiokinetic")
+    $searchDirs = @(
+        'C:\Audiokinetic',
+        'D:\Audiokinetic',
+        "$env:ProgramFiles\Audiokinetic",
+        "${env:ProgramFiles(x86)}\Audiokinetic"
+    )
     foreach ($dir in $searchDirs) {
         if (-not (Test-Path $dir)) { continue }
-        $exe = Get-ChildItem "$dir\\Wwise_*\\Authoring\\x64\\Release\\bin\\WwiseConsole.exe"
-                 -EA SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+        $exe = Get-ChildItem "$dir\Wwise_*\Authoring\x64\Release\bin\WwiseConsole.exe" `
+               -EA SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
         if ($exe) { return $exe.FullName }
     }
     return $null
