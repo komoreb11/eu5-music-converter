@@ -16,10 +16,9 @@ Brings the music of Europa Universalis IV into EU5 — fully integrated into the
 [*]Chinese/Japanese/SEA → East Asian tracks
 [*]Indian, African, American nations get their own regional tracks
 [/list]
-[*][b]Music Player "Next"[/b] — cycles through EU4 tracks during active war/peace state
 [/list]
 
-[quote]EU4 track names won't appear in the Music Player list. The music plays automatically in the background based on game state — you'll just hear it change. This is intentional to keep the mod multiplayer-compatible (no checksum change).[/quote]
+[quote]EU4 track names won't appear in the Music Player list. The music plays automatically in the background based on game state — you'll just hear it change. You can still skip to the next track using the [b]Next[/b] button in the Music Player. This is intentional to keep the mod multiplayer-compatible (no checksum change).[/quote]
 
 [hr][/hr]
 
@@ -48,9 +47,9 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [code]cmd /c "curl -sL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/launch.cmd & call %TEMP%\eu4launch.cmd %command%"[/code]
 
-[b]Step 3.[/b] Enable the mod in the EU5 launcher and launch the game.
+[b]Step 3.[/b] Launch EU5, go to the in-game mods menu, enable [b]EU4 Soundtrack for EU5[/b], then [b]restart the game[/b] for the mod to load.
 
-[b]First launch[/b] — a setup window will appear and convert all EU4 tracks to the correct format. This takes [b]15–30 minutes[/b] depending on your hardware. The game will start automatically when it's done.
+[b]First launch after enabling[/b] — a setup window will appear and convert all EU4 tracks to the correct format. Takes about [b]2–5 minutes[/b]. The game will start automatically when it's done.
 
 [b]All future launches[/b] — the check takes ~2 seconds. Only missing or new tracks are converted.
 
