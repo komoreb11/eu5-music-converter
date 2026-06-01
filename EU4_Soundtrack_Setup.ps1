@@ -634,7 +634,8 @@ Write-Host ""
 # 1. Download required tools if missing
 Write-Status "Checking tools..."
 
-if (-not (Test-Path $PcbPath)) {
+$pcbValid = (Test-Path $PcbPath) -and ((Get-Item $PcbPath).Length -eq 74387)
+if (-not $pcbValid) {
     Write-Status "Downloading packed_codebooks.bin..."
     New-Item -ItemType Directory -Force (Split-Path $PcbPath) | Out-Null
     Invoke-WebRequest "https://github.com/hcs64/ww2ogg/raw/master/packed_codebooks_aoTuV_603.bin" `
