@@ -370,51 +370,10 @@ public class OggToWem {
 }
 Add-Type -Path $CacheDll
 
-if (-not (Test-Path $PcbPath)) {
-    Write-Host "[EU4 Soundtrack] Downloading packed_codebooks.bin..." -ForegroundColor Cyan
-    New-Item -ItemType Directory -Force (Split-Path $PcbPath) | Out-Null
-    Invoke-WebRequest "https://github.com/hcs64/ww2ogg/raw/master/packed_codebooks_aoTuV_603.bin" `
-        -OutFile $PcbPath -UseBasicParsing
-}
-if (-not (Test-Path $PcbPath)) {
-    Write-Host "[X] packed_codebooks.bin download failed" -ForegroundColor Red
-    Read-Host "Press Enter to close"; exit 1
-}
-
 # --- oggenc2 (aoTuV) for floor type 1 Vorbis encoding ---
 $OggEncPath = "$env:TEMP\eu4wem_cache\oggenc2.exe"
-$FlacDll = "$env:TEMP\eu4wem_cache\libFLAC.dll"
+$FlacDll    = "$env:TEMP\eu4wem_cache\libFLAC.dll"
 Add-Type -Assembly System.IO.Compression.FileSystem -EA SilentlyContinue
-
-if (-not (Test-Path $OggEncPath)) {
-    Write-Host "[EU4 Soundtrack] Downloading oggenc2 (aoTuV)..." -ForegroundColor Cyan
-    $zip = "$env:TEMP\eu4wem_cache\oggenc2.zip"
-    Invoke-WebRequest "https://www.rarewares.org/files/ogg/oggenc2.88-1.3.7-aoTuVb6.03-x64.zip" `
-        -OutFile $zip -UseBasicParsing
-    $tmp2 = "$env:TEMP\eu4wem_cache\oggenc2_tmp"
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp2)
-    $exe = Get-ChildItem $tmp2 -Recurse -Filter "oggenc2*.exe" | Select-Object -First 1
-    if ($exe) { Copy-Item $exe.FullName $OggEncPath }
-    Remove-Item $tmp2 -Recurse -Force -EA SilentlyContinue
-    Remove-Item $zip -EA SilentlyContinue
-}
-if (-not (Test-Path $FlacDll)) {
-    Write-Host "[EU4 Soundtrack] Downloading libFLAC.dll..." -ForegroundColor Cyan
-    $zip = "$env:TEMP\eu4wem_cache\flac_dll.zip"
-    Invoke-WebRequest "https://www.rarewares.org/files/lossless/flac_dll-1.5.0-x64.zip" `
-        -OutFile $zip -UseBasicParsing
-    $tmp2 = "$env:TEMP\eu4wem_cache\flac_tmp"
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp2)
-    $dll = Get-ChildItem $tmp2 -Recurse -Filter "libFLAC.dll" | Select-Object -First 1
-    if ($dll) { Copy-Item $dll.FullName $FlacDll }
-    Remove-Item $tmp2 -Recurse -Force -EA SilentlyContinue
-    Remove-Item $zip -EA SilentlyContinue
-}
-if (-not (Test-Path $OggEncPath) -or -not (Test-Path $FlacDll)) {
-    Write-Host "[X] oggenc2 download failed" -ForegroundColor Red
-    Read-Host "Press Enter to close"; exit 1
-}
-Write-Host "[OK] oggenc2 (aoTuV) ready" -ForegroundColor Green
 
 # --- TRACK LIST --------------------------------------------
 # Format: @(EventName, SourceOgg, DlcDir_or_$null)
@@ -672,10 +631,52 @@ Write-Host "  EU4 Soundtrack for EU5" -ForegroundColor White
 Write-Host "  ---------------------" -ForegroundColor DarkGray
 Write-Host ""
 
-# 1. Sync bank files from GitHub
+# 1. Download required tools if missing
+Write-Status "Checking tools..."
+
+if (-not (Test-Path $PcbPath)) {
+    Write-Status "Downloading packed_codebooks.bin..."
+    New-Item -ItemType Directory -Force (Split-Path $PcbPath) | Out-Null
+    Invoke-WebRequest "https://github.com/hcs64/ww2ogg/raw/master/packed_codebooks_aoTuV_603.bin" `
+        -OutFile $PcbPath -UseBasicParsing
+}
+if (-not (Test-Path $PcbPath)) {
+    Write-Err "packed_codebooks.bin download failed"
+    Read-Host "Press Enter to close"; exit 1
+}
+
+if (-not (Test-Path $OggEncPath)) {
+    Write-Status "Downloading oggenc2 (aoTuV)..."
+    $zip = "$env:TEMP\eu4wem_cache\oggenc2.zip"
+    Invoke-WebRequest "https://www.rarewares.org/files/ogg/oggenc2.88-1.3.7-aoTuVb6.03-x64.zip" `
+        -OutFile $zip -UseBasicParsing
+    $tmp2 = "$env:TEMP\eu4wem_cache\oggenc2_tmp"
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp2)
+    $exe = Get-ChildItem $tmp2 -Recurse -Filter "oggenc2*.exe" | Select-Object -First 1
+    if ($exe) { Copy-Item $exe.FullName $OggEncPath }
+    Remove-Item $tmp2 -Recurse -Force -EA SilentlyContinue; Remove-Item $zip -EA SilentlyContinue
+}
+if (-not (Test-Path $FlacDll)) {
+    Write-Status "Downloading libFLAC.dll..."
+    $zip = "$env:TEMP\eu4wem_cache\flac_dll.zip"
+    Invoke-WebRequest "https://www.rarewares.org/files/lossless/flac_dll-1.5.0-x64.zip" `
+        -OutFile $zip -UseBasicParsing
+    $tmp2 = "$env:TEMP\eu4wem_cache\flac_tmp"
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp2)
+    $dll = Get-ChildItem $tmp2 -Recurse -Filter "libFLAC.dll" | Select-Object -First 1
+    if ($dll) { Copy-Item $dll.FullName $FlacDll }
+    Remove-Item $tmp2 -Recurse -Force -EA SilentlyContinue; Remove-Item $zip -EA SilentlyContinue
+}
+if (-not (Test-Path $OggEncPath) -or -not (Test-Path $FlacDll)) {
+    Write-Err "oggenc2 / libFLAC.dll download failed"
+    Read-Host "Press Enter to close"; exit 1
+}
+Write-Ok "Conversion tools ready"
+
+# 2. Sync bank files from GitHub
 Sync-FromGitHub
 
-# 2. Find tools
+# 3. Find EU4 and ffmpeg
 Write-Status "Locating tools..."
 $eu4Path = Find-EU4Path
 if (-not $eu4Path) { Write-Warn "EU4 not found in common Steam paths. Set EU4 path manually." }
