@@ -371,7 +371,13 @@ public class OggToWem {
 Add-Type -Path $CacheDll
 
 if (-not (Test-Path $PcbPath)) {
-    Write-Host "[X] packed_codebooks.bin not found at $PcbPath" -ForegroundColor Red
+    Write-Host "[EU4 Soundtrack] Downloading packed_codebooks.bin..." -ForegroundColor Cyan
+    New-Item -ItemType Directory -Force (Split-Path $PcbPath) | Out-Null
+    Invoke-WebRequest "https://github.com/hcs64/ww2ogg/raw/master/packed_codebooks_aoTuV_603.bin" `
+        -OutFile $PcbPath -UseBasicParsing
+}
+if (-not (Test-Path $PcbPath)) {
+    Write-Host "[X] packed_codebooks.bin download failed" -ForegroundColor Red
     Read-Host "Press Enter to close"; exit 1
 }
 
