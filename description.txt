@@ -28,9 +28,9 @@ Brings the music of Europa Universalis IV into EU5 — fully integrated into the
 The mod reads audio files directly from your EU4 folder — it does not download or redistribute any music.
 Only tracks from DLCs you own will be included.
 
-[b]2. Wwise Authoring Tools 2026.x[/b] (free)
-Required to convert EU4 audio to EU5-compatible format (WEM).
-[url=https://www.audiokinetic.com/en/download/]audiokinetic.com/en/download[/url] — create a free account, download and run the Wwise Launcher → open the [b]Wwise[/b] tab → Install → check [b]Authoring[/b] → Install (~2 GB).
+[strike][b]2. Wwise Authoring Tools 2026.x[/b] (free)
+Required to convert EU4 audio to EU5-compatible format (WEM).[/strike]
+[i]No longer required — the setup script handles conversion automatically.[/i]
 
 [b]3. FFmpeg[/b]
 Audio conversion tool. Install via terminal:
@@ -41,7 +41,7 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [h2]Installation[/h2]
 
-[b]Step 1.[/b] Make sure all three requirements above are installed.
+[b]Step 1.[/b] Make sure requirements 1 and 3 above are installed.
 
 [b]Step 2.[/b] In Steam → right-click EU5 → Properties → [b]Launch Options[/b], paste:
 
@@ -51,7 +51,7 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [b]Step 4.[/b] Once in the game, open the mods menu → enable [b]EU4 Soundtrack for EU5[/b] → restart the game.
 
-After the initial conversion the launch command and the tools (Wwise, FFmpeg) are no longer required — the mod works without them. You can uninstall them, or keep them if you want the setup to automatically sync any new EU4 tracks added to your game folder.
+After the initial conversion the launch command and FFmpeg are no longer required — the mod works without them. You can uninstall them, or keep them if you want the setup to automatically sync any new EU4 tracks added to your game folder.
 
 [hr]
 
@@ -88,8 +88,6 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 [hr]
 
 [h2]Troubleshooting[/h2]
-
-[b]"Wwise not found"[/b] — Install Wwise from audiokinetic.com (free account, use the Wwise Launcher)
 
 [b]"FFmpeg not found"[/b] — Run [code]winget install ffmpeg[/code] in PowerShell, then restart Steam
 

@@ -656,35 +656,7 @@ function Find-Ogg([string]$SourceOgg, [string]$DlcDir, [string]$Eu4Path) {
 
 
 function Sync-FromGitHub {
-    # Banks come from Steam Workshop, no GitHub sync needed for bank files
-    return
-    $files = @(
-    $updated = 0
-    foreach ($f in $files) {
-        $dest = "$ModDir\$f"
-        $url  = "$GitHubRaw/$f"
-        $dir  = Split-Path $dest
-        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
-        try {
-            $tmp = "$env:TEMP\eu4snd_dl"
-            Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -TimeoutSec 15 -EA Stop
-            $newBytes = [System.IO.File]::ReadAllBytes($tmp)
-            $changed = $true
-            if (Test-Path $dest) {
-                $oldBytes = [System.IO.File]::ReadAllBytes($dest)
-                if ($newBytes.Length -eq $oldBytes.Length -and
-                    [System.Linq.Enumerable]::SequenceEqual($newBytes, $oldBytes)) {
-                    $changed = $false
-                }
-            }
-            if ($changed) {
-                Copy-Item $tmp $dest -Force
-                $updated++
-            }
-        } catch { Write-Warn "Could not download $($f): $_" }
-    }
-    if ($updated -gt 0) { Write-Ok "$updated file(s) updated from GitHub" }
-    else { Write-Ok "All mod files up to date" }
+    # Banks come from Steam Workshop, not GitHub
 }
 
 # --- MAIN --------------------------------------------------
@@ -816,7 +788,7 @@ if ($eu4Path -and $ffmpeg) {
 }
 
 # Rebuild media.bnk only if new WEMs were converted
-if (Test-Path $MediaDir) {
+if ($done -gt 0 -and (Test-Path $MediaDir)) {
     Write-Status "Rebuilding media.bnk..."
     $bnkPath = "$BanksDir\eu4_soundtrack_media.bnk"
     $wems = Get-ChildItem "$MediaDir\*.wem" -EA SilentlyContinue |
