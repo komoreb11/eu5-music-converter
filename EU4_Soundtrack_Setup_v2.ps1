@@ -4,7 +4,7 @@
     EU4 Soundtrack for EU5 - Auto Setup & Launcher
 .DESCRIPTION
     Checks and converts missing EU4 tracks to WEM format, then launches EU5.
-    No Python required. Uses ffmpeg + Wwise Authoring Tools.
+    No Python, no Wwise required. Uses ffmpeg only (v2).
 .NOTES
     Steam launch option:
     powershell -NoProfile -ExecutionPolicy Bypass -File "C:\path\EU4_Soundtrack_Setup.ps1" -LaunchCmd "%COMMAND%"
@@ -50,9 +50,365 @@ if (-not $ModDir) {
 }
 $BanksDir  = "$ModDir\loading_screen\sound\banks\windows"
 $MediaDir  = "$BanksDir\Media"
-$WwiseProjDir = "$ModDir\wwise_project"
-$WwiseTmpDir  = "$env:TEMP\eu4snd_wwise"
+$TmpDir    = "$env:TEMP\eu4snd_v2"
+$CacheDll  = "$env:TEMP\eu4wem_cache\OggToWem_v3.dll"
+$PcbPath   = "$env:TEMP\eu4wem_cache\packed_codebooks.bin"
 $GitHubRaw = "https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main"
+
+# --- COMPILE OGG->WEM CONVERTER (once, cached as DLL) ------
+if (-not (Test-Path $CacheDll)) {
+    New-Item -ItemType Directory -Force (Split-Path $CacheDll) | Out-Null
+    Add-Type -TypeDefinition @'
+using System; using System.IO; using System.Collections.Generic;
+
+public class OggToWem {
+    class BR {
+        byte[] d; int pos;
+        public BR(byte[] data){d=data;pos=0;}
+        public int Read(int n){int v=0;for(int i=0;i<n;i++){int b=pos>>3,bt=pos&7;v|=((d[b]>>bt)&1)<<i;pos++;}return v;}
+        public int Rem{get{return d.Length*8-pos;}}
+    }
+    class BW {
+        List<byte> buf=new List<byte>();int cur=0,nb=0;
+        public void Write(int v,int n){for(int i=0;i<n;i++){cur|=((v>>i)&1)<<nb;nb++;if(nb==8){buf.Add((byte)cur);cur=0;nb=0;}}}
+        public byte[] Flush(){if(nb>0)buf.Add((byte)cur);return buf.ToArray();}
+    }
+    static int ILog(int x){if(x==0)return 0;int n=0;while(x>0){n++;x>>=1;}return n;}
+
+    // Read one std Vorbis codebook, return canonical bytes for lookup
+    static byte[] ReadCanonicalCb(BR br){
+        var bw=new BW();
+        int sync=br.Read(24); if(sync!=0x564342) throw new Exception("Bad codebook sync");
+        int dims=br.Read(16),entries=br.Read(24);
+        bw.Write(sync,24);bw.Write(dims,16);bw.Write(entries,24);
+        int ordered=br.Read(1);bw.Write(ordered,1);
+        if(ordered==1){
+            int il=br.Read(5);bw.Write(il,5);int ce=0;
+            while(ce<entries){int n=ILog(entries-ce);int c=br.Read(n);bw.Write(c,n);ce+=c;}
+        } else {
+            int sparse=br.Read(1);bw.Write(sparse,1);
+            for(int i=0;i<entries;i++){
+                bool present=true;
+                if(sparse==1){int p=br.Read(1);bw.Write(p,1);present=(p==1);}
+                if(present){int l=br.Read(5);bw.Write(l,5);}
+            }
+        }
+        int lt=br.Read(4);bw.Write(lt,4);
+        if(lt==1){
+            bw.Write(br.Read(32),32);bw.Write(br.Read(32),32);
+            int vl=br.Read(4);bw.Write(vl,4);bw.Write(br.Read(1),1);
+            int qv=1;while(true){long a=1;for(int i=0;i<dims;i++)a*=qv;if(a>=entries)break;qv++;}
+            for(int i=0;i<qv;i++)bw.Write(br.Read(vl+1),vl+1);
+        }
+        return bw.Flush();
+    }
+
+    // Decode one packed codebook (wwise inline) -> canonical bytes
+    static byte[] DecodePcb(BR br){
+        var bw=new BW();
+        int dims=br.Read(4),entries=br.Read(14);
+        bw.Write(0x564342,24);bw.Write(dims,16);bw.Write(entries,24);
+        int ordered=br.Read(1);bw.Write(ordered,1);
+        if(ordered==1){
+            int il=br.Read(5);bw.Write(il,5);int ce=0;
+            while(ce<entries){int n=ILog(entries-ce);int c=br.Read(n);bw.Write(c,n);ce+=c;}
+        } else {
+            int cwll=br.Read(3),sparse=br.Read(1);bw.Write(sparse,1);
+            for(int i=0;i<entries;i++){
+                bool present=true;
+                if(sparse==1){int p=br.Read(1);bw.Write(p,1);present=(p==1);}
+                if(present){int l=br.Read(cwll);bw.Write(l,5);}
+            }
+        }
+        int lt=br.Read(1);bw.Write(lt,4);
+        if(lt==1){
+            bw.Write(br.Read(32),32);bw.Write(br.Read(32),32);
+            int vl=br.Read(4);bw.Write(vl,4);bw.Write(br.Read(1),1);
+            int qv=1;while(true){long a=1;for(int i=0;i<dims;i++)a*=qv;if(a>=entries)break;qv++;}
+            for(int i=0;i<qv;i++)bw.Write(br.Read(vl+1),vl+1);
+        }
+        return bw.Flush();
+    }
+
+    // Build lookup: canonical_bytes_base64 -> packed_codebook_id
+    static Dictionary<string,int> BuildLookup(string pcbPath){
+        var pcb=File.ReadAllBytes(pcbPath);
+        int offTableOff=BitConverter.ToInt32(pcb,pcb.Length-4);
+        int cbCount=(pcb.Length-4-offTableOff)/4;
+        var offsets=new int[cbCount+1];
+        for(int i=0;i<cbCount;i++) offsets[i]=BitConverter.ToInt32(pcb,offTableOff+i*4);
+        offsets[cbCount]=offTableOff;
+        var lookup=new Dictionary<string,int>();
+        for(int i=0;i<cbCount;i++){
+            try{
+                int sz=offsets[i+1]-offsets[i];
+                var cb=new byte[sz]; Buffer.BlockCopy(pcb,offsets[i],cb,0,sz);
+                var canonical=DecodePcb(new BR(cb));
+                var key=System.Convert.ToBase64String(canonical);
+                if(!lookup.ContainsKey(key)) lookup[key]=i;
+            } catch{}
+        }
+        return lookup;
+    }
+
+    // Convert remaining setup section: floor/residue/mapping/mode
+    // Removes fields Wwise omits, compresses residue_type 16->2 bits
+    static void ConvertRemainingSetup(BR br, BW bw, int channels,
+                                      out int modeBitsOut, out bool[] modeBlockflagOut){
+        // ── TIME DOMAIN: Wwise omits entirely (hardcodes 0) ────────────────
+        int tc=br.Read(6);                  // read time_count_m1 from std Vorbis
+        for(int i=0;i<=tc;i++) br.Read(16); // skip time_type values (not written to Wwise)
+
+        // ── FLOORS ─────────────────────────────────────────────────────────
+        int fc=br.Read(6); bw.Write(fc,6); // floor_count_m1
+        for(int i=0;i<=fc;i++){
+            br.Read(16); // floor_type: skip (Wwise omits, always 1)
+            // floor type 1 config
+            int parts=br.Read(5); bw.Write(parts,5);
+            var partClass=new int[parts];
+            int maxClass=-1;
+            for(int j=0;j<parts;j++){
+                partClass[j]=br.Read(4); bw.Write(partClass[j],4);
+                if(partClass[j]>maxClass) maxClass=partClass[j];
+            }
+            var classDims=new int[maxClass+1];
+            for(int j=0;j<=maxClass;j++){
+                int dims_m1=br.Read(3); bw.Write(dims_m1,3);
+                classDims[j]=dims_m1+1;
+                int subs=br.Read(2); bw.Write(subs,2);
+                if(subs!=0){int mb=br.Read(8);bw.Write(mb,8);}
+                for(int k=0;k<(1<<subs);k++){bw.Write(br.Read(8),8);} // same format in both: book+1, 0=no book
+            }
+            int mult_m1=br.Read(2); bw.Write(mult_m1,2);
+            int rangebits=br.Read(4); bw.Write(rangebits,4);
+            for(int j=0;j<parts;j++){
+                for(int k=0;k<classDims[partClass[j]];k++){
+                    int x=br.Read(rangebits); bw.Write(x,rangebits);
+                }
+            }
+        }
+        // ── RESIDUES ───────────────────────────────────────────────────────
+        int rc=br.Read(6); bw.Write(rc,6); // residue_count_m1
+        for(int i=0;i<=rc;i++){
+            int rt=br.Read(16); bw.Write(rt,2); // residue_type: 16->2 bits
+            // copy residue config
+            bw.Write(br.Read(24),24); // begin
+            bw.Write(br.Read(24),24); // end
+            bw.Write(br.Read(24),24); // partition_size_m1
+            int cls_m1=br.Read(6); bw.Write(cls_m1,6);
+            bw.Write(br.Read(8),8);  // classbook
+            int cls=cls_m1+1;
+            var cascade=new int[cls];
+            for(int j=0;j<cls;j++){
+                int lb=br.Read(3); bw.Write(lb,3);
+                int bit=br.Read(1); bw.Write(bit,1);
+                int hb=0; if(bit==1){hb=br.Read(5);bw.Write(hb,5);}
+                cascade[j]=lb|(hb<<3);
+            }
+            for(int j=0;j<cls;j++){
+                for(int k=0;k<8;k++){
+                    if((cascade[j]&(1<<k))!=0){bw.Write(br.Read(8),8);}
+                }
+            }
+        }
+        // ── MAPPINGS ───────────────────────────────────────────────────────
+        int mc=br.Read(6); bw.Write(mc,6); // mapping_count_m1: both std Vorbis and Wwise use 6 bits
+        for(int i=0;i<=mc;i++){
+            br.Read(16); // mapping_type: skip (always 0)
+            int sf=br.Read(1); bw.Write(sf,1);
+            int submaps=1;
+            if(sf==1){int sm=br.Read(4);bw.Write(sm,4);submaps=sm+1;}
+            int sqpf=br.Read(1); bw.Write(sqpf,1);
+            if(sqpf==1){
+                int cs_m1=br.Read(8); bw.Write(cs_m1,8);
+                int cs=cs_m1+1;
+                int cbits=ILog(channels-1);
+                for(int j=0;j<cs;j++){bw.Write(br.Read(cbits),cbits);bw.Write(br.Read(cbits),cbits);}
+            }
+            br.Read(2); bw.Write(0,2); // reserved: always 0 in Wwise
+            if(submaps>1){for(int j=0;j<channels;j++){bw.Write(br.Read(4),4);}}
+            for(int j=0;j<submaps;j++){
+                bw.Write(br.Read(8),8); // time_config
+                bw.Write(br.Read(8),8); // floor
+                bw.Write(br.Read(8),8); // residue
+            }
+        }
+        // ── MODES ──────────────────────────────────────────────────────────
+        int modc=br.Read(6); bw.Write(modc,6);
+        int modeCount=modc+1;
+        var blockflags=new bool[modeCount];
+        for(int i=0;i<modeCount;i++){
+            int bf=br.Read(1); bw.Write(bf,1);
+            blockflags[i]=(bf!=0);
+            br.Read(16); br.Read(16); // windowtype, transformtype: skip
+            bw.Write(br.Read(8),8); // mapping
+        }
+        bw.Write(1,1); // framing bit
+        modeBitsOut=ILog(modeCount-1);
+        modeBlockflagOut=blockflags;
+    }
+
+    // Transform standard Vorbis audio packet -> Wwise modified packet
+    // Removes: 1-bit packet type, and 2 window bits for long-mode packets
+    static byte[] ToModifiedPacket(byte[] pkt, int modeBits, bool[] modeBlockflag){
+        if(pkt==null||pkt.Length==0) return pkt;
+        var br=new BR(pkt); var bw=new BW();
+        br.Read(1); // skip packet_type bit (always 0 for audio)
+        int modeNum=(modeBits>0)?br.Read(modeBits):0;
+        bool isLong=modeBlockflag!=null&&modeNum<modeBlockflag.Length&&modeBlockflag[modeNum];
+        if(isLong&&br.Rem>=2){br.Read(1);br.Read(1);} // skip prev/next window bits
+        if(modeBits>0) bw.Write(modeNum,modeBits);
+        // copy all remaining bits verbatim
+        while(br.Rem>0){int n=Math.Min(br.Rem,32);bw.Write(br.Read(n),n);}
+        return bw.Flush();
+    }
+
+    // Convert std Vorbis setup -> external packed codebook IDs + rest verbatim
+    // Also extracts mode info for packet transformation
+    static byte[] SetupToExternal(byte[] st, Dictionary<string,int> lookup, int channels,
+                                   out int modeBits, out bool[] modeBlockflag){
+        var br=new BR(st); var bw=new BW();
+        br.Read(56); // skip '05 vorbis'
+        int cbc=br.Read(8); bw.Write(cbc,8);
+        for(int i=0;i<=cbc;i++){
+            var canonical=ReadCanonicalCb(br);
+            var key=System.Convert.ToBase64String(canonical);
+            int id;
+            if(!lookup.TryGetValue(key,out id)) throw new Exception("Codebook "+i+" not in packed_codebooks");
+            bw.Write(id,10);
+        }
+        // Convert remaining setup: floor/residue/mapping/mode
+        // Wwise omits floor_type, mapping_type, mode windowtype/transformtype
+        // Wwise stores residue_type as 2 bits instead of 16
+        ConvertRemainingSetup(br,bw,channels,out modeBits,out modeBlockflag);
+        return bw.Flush();
+    }
+
+    // OGG parser
+    struct R{public List<byte[]> P;public long S;}
+    static R Parse(byte[] d){
+        var r=new R{P=new List<byte[]>()};
+        int pos=0;byte[] buf=null;int bl=0;
+        while(pos<=d.Length-27){
+            if(d[pos]!=79||d[pos+1]!=103||d[pos+2]!=103||d[pos+3]!=83) break;
+            long g=BitConverter.ToInt64(d,pos+6);if(g>0)r.S=g;
+            int ns=d[pos+26],dp=pos+27+ns;
+            for(int i=0;i<ns;i++){
+                int sz=d[pos+27+i];
+                if(bl+sz>(buf==null?0:buf.Length)){var nb=new byte[Math.Max(bl+sz,bl*2+256)];if(buf!=null)Buffer.BlockCopy(buf,0,nb,0,bl);buf=nb;}
+                Buffer.BlockCopy(d,dp,buf,bl,sz);bl+=sz;dp+=sz;
+                if(sz<255){var p=new byte[bl];Buffer.BlockCopy(buf,0,p,0,bl);r.P.Add(p);bl=0;}
+            }
+            pos=dp;
+        }
+        if(bl>0){var p=new byte[bl];Buffer.BlockCopy(buf,0,p,0,bl);r.P.Add(p);}
+        return r;
+    }
+    static void W16(BinaryWriter w,int v){w.Write((ushort)v);}
+    static void W32(BinaryWriter w,long v){w.Write((uint)v);}
+
+    public static string Convert(string ogg,string wem,string pcbPath){
+        try{
+            var lookup=BuildLookup(pcbPath);
+            var r=Parse(File.ReadAllBytes(ogg));
+            if(r.P.Count<4) return "Too few packets: "+r.P.Count;
+            var id=r.P[0];int ch=id[11],sr=BitConverter.ToInt32(id,12),bs=id[28];
+            int bs0=bs&0xF,bs1=(bs>>4)&0xF;
+            int modeBits; bool[] modeBlockflag;
+            byte[] setup=SetupToExternal(r.P[2],lookup,ch,out modeBits,out modeBlockflag);
+            // Collect audio packets, transform to Wwise modified format, build seek table
+            var audioPkts=new System.Collections.Generic.List<byte[]>();
+            int mx=0;
+            for(int i=3;i<r.P.Count;i++){
+                var p=ToModifiedPacket(r.P[i],modeBits,modeBlockflag);
+                audioPkts.Add(p);if(p.Length>mx)mx=p.Length;
+            }
+            var seekEntries=new System.Collections.Generic.List<uint>();
+            uint apos=0;
+            foreach(var p in audioPkts){
+                if(seekEntries.Count==0||apos-seekEntries[seekEntries.Count-1]>=2048)
+                    seekEntries.Add(apos);
+                apos+=(uint)(2+p.Length);
+            }
+            byte[] seekTable=new byte[seekEntries.Count*4];
+            for(int i=0;i<seekEntries.Count;i++)
+                BitConverter.GetBytes(seekEntries[i]).CopyTo(seekTable,i*4);
+            // Layout: [seek_table][size_prefix(2)][setup][audio]
+            long seekSz=seekTable.Length;
+            long audioStart=seekSz+2+setup.Length;
+            using(var ms=new MemoryStream(seekTable.Length+(int)audioStart+audioPkts.Count*512)){
+                var bw=new BinaryWriter(ms);
+                bw.Write(seekTable);
+                W16(bw,setup.Length);bw.Write(setup);
+                foreach(var p in audioPkts){W16(bw,p.Length);bw.Write(p);}
+                long de=ms.Position;byte[] data=ms.ToArray();
+                using(var fe=new MemoryStream(48)){
+                    var fw=new BinaryWriter(fe);
+                    fw.Write(new byte[]{0,0,2,0x31,0,0});
+                    W32(fw,r.S);W32(fw,audioStart);W32(fw,de);W16(fw,0);W16(fw,0);
+                    W32(fw,seekSz);W32(fw,audioStart);
+                    W16(fw,mx);W16(fw,0);W32(fw,(1<<bs1)*ch*2);W32(fw,(1<<bs1)*ch*4);W32(fw,0);
+                    fw.Write((byte)bs0);fw.Write((byte)bs1);
+                    byte[] ex=fe.ToArray();
+                    using(var f=new FileStream(wem,FileMode.Create,FileAccess.Write,FileShare.None,65536)){
+                        var ww=new BinaryWriter(f);
+                        ww.Write(new byte[]{0x52,0x49,0x46,0x46});
+                        W32(ww,4+8+66+8+16+8+data.Length);
+                        ww.Write(new byte[]{0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20});
+                        W32(ww,66);W16(ww,0xFFFF);W16(ww,ch);W32(ww,sr);W32(ww,sr*ch*2);W16(ww,0);W16(ww,0);W16(ww,48);
+                        ww.Write(ex);
+                        ww.Write(new byte[]{0x68,0x61,0x73,0x68});W32(ww,16);ww.Write(new byte[16]);
+                        ww.Write(new byte[]{0x64,0x61,0x74,0x61});W32(ww,data.Length);ww.Write(data);
+                    }
+                }
+            }
+            return "ok";
+        } catch(Exception e){return e.GetType().Name+": "+e.Message;}
+    }
+}
+'@ -OutputAssembly $CacheDll
+}
+Add-Type -Path $CacheDll
+
+if (-not (Test-Path $PcbPath)) {
+    Write-Host "[X] packed_codebooks.bin not found at $PcbPath" -ForegroundColor Red
+    Read-Host "Press Enter to close"; exit 1
+}
+
+# --- oggenc2 (aoTuV) for floor type 1 Vorbis encoding ---
+$OggEncPath = "$env:TEMP\eu4wem_cache\oggenc2.exe"
+$FlacDll = "$env:TEMP\eu4wem_cache\libFLAC.dll"
+Add-Type -Assembly System.IO.Compression.FileSystem -EA SilentlyContinue
+
+if (-not (Test-Path $OggEncPath)) {
+    Write-Host "[EU4 Soundtrack] Downloading oggenc2 (aoTuV)..." -ForegroundColor Cyan
+    $zip = "$env:TEMP\eu4wem_cache\oggenc2.zip"
+    Invoke-WebRequest "https://www.rarewares.org/files/ogg/oggenc2.88-1.3.7-aoTuVb6.03-x64.zip" `
+        -OutFile $zip -UseBasicParsing
+    $tmp2 = "$env:TEMP\eu4wem_cache\oggenc2_tmp"
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp2)
+    $exe = Get-ChildItem $tmp2 -Recurse -Filter "oggenc2*.exe" | Select-Object -First 1
+    if ($exe) { Copy-Item $exe.FullName $OggEncPath }
+    Remove-Item $tmp2 -Recurse -Force -EA SilentlyContinue
+    Remove-Item $zip -EA SilentlyContinue
+}
+if (-not (Test-Path $FlacDll)) {
+    Write-Host "[EU4 Soundtrack] Downloading libFLAC.dll..." -ForegroundColor Cyan
+    $zip = "$env:TEMP\eu4wem_cache\flac_dll.zip"
+    Invoke-WebRequest "https://www.rarewares.org/files/lossless/flac_dll-1.5.0-x64.zip" `
+        -OutFile $zip -UseBasicParsing
+    $tmp2 = "$env:TEMP\eu4wem_cache\flac_tmp"
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp2)
+    $dll = Get-ChildItem $tmp2 -Recurse -Filter "libFLAC.dll" | Select-Object -First 1
+    if ($dll) { Copy-Item $dll.FullName $FlacDll }
+    Remove-Item $tmp2 -Recurse -Force -EA SilentlyContinue
+    Remove-Item $zip -EA SilentlyContinue
+}
+if (-not (Test-Path $OggEncPath) -or -not (Test-Path $FlacDll)) {
+    Write-Host "[X] oggenc2 download failed" -ForegroundColor Red
+    Read-Host "Press Enter to close"; exit 1
+}
+Write-Host "[OK] oggenc2 (aoTuV) ready" -ForegroundColor Green
 
 # --- TRACK LIST --------------------------------------------
 # Format: @(EventName, SourceOgg, DlcDir_or_$null)
@@ -232,20 +588,34 @@ function Get-WemId([string]$EventName) {
     return [uint32]$h
 }
 
+function Find-SteamLibraries {
+    # Get Steam root from registry
+    $steamRoot = $null
+    try { $steamRoot = (Get-ItemProperty "HKCU:\Software\Valve\Steam" -EA Stop).SteamPath -replace '/','\\' } catch {}
+    if (-not $steamRoot) {
+        try { $steamRoot = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam" -EA Stop).InstallPath } catch {}
+    }
+    $libs = @()
+    if ($steamRoot -and (Test-Path $steamRoot)) {
+        $libs += $steamRoot
+        $vdf = "$steamRoot\steamapps\libraryfolders.vdf"
+        if (Test-Path $vdf) {
+            Get-Content $vdf | Select-String '"path"' | ForEach-Object {
+                if ($_ -match '"path"\s+"([^"]+)"') {
+                    $libs += $Matches[1] -replace '\\\\','\'
+                }
+            }
+        }
+    }
+    return $libs
+}
+
 function Find-EU4Path {
-    $candidates = @(
-        "$env:ProgramFiles(x86)\Steam\steamapps\common\Europa Universalis IV",
-        "C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis IV",
-        "D:\Steam\steamapps\common\Europa Universalis IV",
-        "D:\SteamLibrary\steamapps\common\Europa Universalis IV",
-        "E:\Steam\steamapps\common\Europa Universalis IV",
-        "E:\SteamLibrary\steamapps\common\Europa Universalis IV",
-        "F:\SteamLibrary\steamapps\common\Europa Universalis IV"
-    )
-    foreach ($p in $candidates) {
+    foreach ($lib in (Find-SteamLibraries)) {
+        $p = "$lib\steamapps\common\Europa Universalis IV"
         if (Test-Path "$p\eu4.exe") { return $p }
     }
-    # Check registry
+    # EU4 registry fallback
     try {
         $reg = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 236850" -EA Stop
         if (Test-Path "$($reg.InstallLocation)\eu4.exe") { return $reg.InstallLocation }
@@ -253,21 +623,6 @@ function Find-EU4Path {
     return $null
 }
 
-function Find-WwiseConsole {
-    $searchDirs = @(
-        'C:\Audiokinetic',
-        'D:\Audiokinetic',
-        "$env:ProgramFiles\Audiokinetic",
-        "${env:ProgramFiles(x86)}\Audiokinetic"
-    )
-    foreach ($dir in $searchDirs) {
-        if (-not (Test-Path $dir)) { continue }
-        $exe = Get-ChildItem "$dir\Wwise_*\Authoring\x64\Release\bin\WwiseConsole.exe" `
-               -EA SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
-        if ($exe) { return $exe.FullName }
-    }
-    return $null
-}
 
 function Find-Ogg([string]$SourceOgg, [string]$DlcDir, [string]$Eu4Path) {
     if (-not $DlcDir) {
@@ -299,66 +654,11 @@ function Find-Ogg([string]$SourceOgg, [string]$DlcDir, [string]$Eu4Path) {
     return $null
 }
 
-function Convert-Track([string]$OggPath, [string]$WemPath, [string]$WwiseConsole) {
-    $stem = [System.IO.Path]::GetFileNameWithoutExtension($WemPath)
-    New-Item -ItemType Directory -Force $WwiseTmpDir | Out-Null
-    $wavPath     = "$WwiseTmpDir\$stem.wav"
-    $wsourcePath = "$WwiseTmpDir\$stem.wsources"
-    $outDir      = "$WwiseTmpDir\${stem}_out"
-
-    # OGG - WAV
-    $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Warn "ffmpeg failed for $stem"; return $false }
-
-    # Use existing Wwise project (must exist at $WwiseProjDir)
-    $proj = "$WwiseProjDir\eu4mod.wproj"
-    if (-not (Test-Path $proj)) { Write-Warn "Wwise project not found: $proj"; return $false }
-
-    # wsources XML
-    $wsourcesXml = ("<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n" +
-        "<ExternalSourcesList SchemaVersion=`"1`" Root=`"$WwiseTmpDir`">`r`n" +
-        "    <Source Path=`"$stem.wav`" Conversion=`"Vorbis Quality High`"/>`r`n" +
-        "</ExternalSourcesList>")
-    $wsourcesXml | Set-Content $wsourcePath -Encoding UTF8
-
-    # WAV - WEM
-    New-Item -ItemType Directory -Force $outDir | Out-Null
-    $wwOut = & $WwiseConsole convert-external-source $proj --source-file $wsourcePath --output $outDir 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warn "WwiseConsole failed (exit $LASTEXITCODE) for $stem"
-        Write-Warn ($wwOut | Out-String)
-        return $false
-    }
-
-    # Find output WEM - search broadly
-    $wem = Get-ChildItem "$outDir\Windows\*.wem" -EA SilentlyContinue | Select-Object -First 1
-    if (-not $wem) { $wem = Get-ChildItem "$outDir" -Recurse -Filter "*.wem" -EA SilentlyContinue | Select-Object -First 1 }
-    if (-not $wem) {
-        # Show what IS there for debugging
-        $files = Get-ChildItem $outDir -Recurse -EA SilentlyContinue | Select-Object -First 5
-        Write-Warn "WEM not found in $outDir. Contents: $($files.Name -join ', ')"
-        return $false
-    }
-
-    Copy-Item $wem.FullName $WemPath -Force
-    Remove-Item $wavPath,$wsourcePath -EA SilentlyContinue
-    Remove-Item $outDir -Recurse -Force -EA SilentlyContinue
-    return $true
-}
 
 function Sync-FromGitHub {
-    # Banks come from Steam Workshop, no GitHub sync needed
+    # Banks come from Steam Workshop, no GitHub sync needed for bank files
     return
     $files = @(
-        "loading_screen/sound/banks/windows/eu4_soundtrack_music.bnk",
-        "loading_screen/sound/banks/windows/eu4_soundtrack_media.bnk",
-        "loading_screen/sound/banks/windows/SoundbanksInfo.json",
-        ".metadata/metadata.json",
-        "descriptor.mod",
-        "wwise_project/eu4mod.wproj",
-        "wwise_project/Conversion Settings/Default Work Unit.wwu",
-        "wwise_project/Conversion Settings/Factory Conversion Settings.wwu"
-    )
     $updated = 0
     foreach ($f in $files) {
         $dest = "$ModDir\$f"
@@ -415,12 +715,9 @@ if (-not $ffmpeg) {
 }
 if (-not $ffmpeg) { Write-Err 'FFmpeg not found! Run: winget install ffmpeg  OR add to PATH' }
 else { Write-Ok "FFmpeg found" }
-$wwiseConsole = Find-WwiseConsole
-if (-not $wwiseConsole) { Write-Err "Wwise not found! Download free from: https://audiokinetic.com/download/" }
-else { Write-Ok "Wwise: $wwiseConsole" }
 
 # 3. Check & convert missing tracks
-if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
+if ($eu4Path -and $ffmpeg) {
     New-Item -ItemType Directory -Force $MediaDir | Out-Null
     
     $missing = @()
@@ -456,45 +753,37 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
             }
         }
 
-        # Parallel runner using jobs
+        # Parallel runner: ffmpeg WAV + oggenc2(aoTuV) OGG + C# WEM
         $convertScript = {
-            param($OggPath, $WemPath, $WwiseConsole, $WwiseProjDir, $WwiseTmpDir)
-            $stem   = [System.IO.Path]::GetFileNameWithoutExtension($WemPath)
-            $jid    = [System.Threading.Thread]::CurrentThread.ManagedThreadId
-            $tmpDir = "$WwiseTmpDir\job_${jid}_$stem"
-            New-Item -ItemType Directory -Force $tmpDir | Out-Null
-            $wavPath = "$tmpDir\$stem.wav"
-            $wsPath  = "$tmpDir\$stem.wsources"
-            $outDir  = "$tmpDir\out"
+            param($OggPath, $WemPath, $TmpDir, $CacheDll, $PcbPath, $OggEncPath)
             try {
-                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wavPath 2>&1
-                if ($LASTEXITCODE -ne 0) { return "ffmpeg failed (exit $LASTEXITCODE): $($r | Select-Object -Last 3 | Out-String)" }
-                $proj = "$WwiseProjDir\eu4mod.wproj"
-                if (-not (Test-Path $proj)) { return "Wwise project not found: $proj" }
-                ("<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n" +
-                 "<ExternalSourcesList SchemaVersion=`"1`" Root=`"$tmpDir`">`r`n" +
-                 "    <Source Path=`"$stem.wav`" Conversion=`"Vorbis Quality High`"/>`r`n" +
-                 "</ExternalSourcesList>") | Set-Content $wsPath -Encoding UTF8
-                New-Item -ItemType Directory -Force $outDir | Out-Null
-                $out = & $WwiseConsole convert-external-source $proj --source-file $wsPath --output $outDir 2>&1
-                if ($LASTEXITCODE -ne 0) { return "WwiseConsole failed (exit $LASTEXITCODE): $($out | Select-Object -Last 5 | Out-String)" }
-                $wem = Get-ChildItem $outDir -Recurse -Filter "*.wem" -EA SilentlyContinue | Select-Object -First 1
-                if (-not $wem) { return "WEM not found after conversion" }
-                Copy-Item $wem.FullName $WemPath -Force
+                Add-Type -Path $CacheDll -EA Stop
+                $stem = [System.IO.Path]::GetFileNameWithoutExtension($WemPath)
+                $wav  = "$TmpDir\$stem.wav"
+                $ogg  = "$TmpDir\$stem.ogg"
+                New-Item -ItemType Directory -Force $TmpDir | Out-Null
+                # Step 1: OGG -> WAV (PCM) via ffmpeg
+                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wav 2>&1
+                if ($LASTEXITCODE -ne 0) { return "ffmpeg failed: $($r | Select-Object -Last 3 | Out-String)" }
+                # Step 2: WAV -> OGG (aoTuV floor type 1) via oggenc2
+                $r = & $OggEncPath -q 6 -o $ogg $wav 2>&1
+                if ($LASTEXITCODE -ne 0) { return "oggenc2 failed: $($r | Select-Object -Last 3 | Out-String)" }
+                Remove-Item $wav -EA SilentlyContinue
+                # Step 3: OGG -> WEM (external packed codebooks)
+                $res = [OggToWem]::Convert($ogg, $WemPath, $PcbPath)
+                Remove-Item $ogg -EA SilentlyContinue
+                if ($res -ne "ok") { return "WEM failed: $res" }
                 return $true
-            } finally {
-                Remove-Item $tmpDir -Recurse -Force -EA SilentlyContinue
-            }
+            } catch { return "Error: $_" }
         }
 
         $jobs = @(); $done = 0; $failed = 0; $idx = 0
         while ($idx -lt $workList.Count -or $jobs.Count -gt 0) {
-            # Start new jobs up to limit
             while ($jobs.Count -lt $maxJobs -and $idx -lt $workList.Count) {
                 $item = $workList[$idx++]
                 Write-Host "  [+] $($item.EventName)" -ForegroundColor DarkCyan
                 $job = Start-Job -ScriptBlock $convertScript `
-                    -ArgumentList $item.OggPath,$item.WemPath,$wwiseConsole,$WwiseProjDir,$WwiseTmpDir
+                    -ArgumentList $item.OggPath,$item.WemPath,$TmpDir,$CacheDll,$PcbPath,$OggEncPath
                 $jobs += [PSCustomObject]@{Job=$job; Name=$item.EventName}
             }
             # Check completed jobs
@@ -519,15 +808,59 @@ if ($eu4Path -and $ffmpeg -and $wwiseConsole) {
         Write-Ok "Done: $done  Failed: $failed  Skipped (no DLC): $skipped"
     }
 } elseif (-not $eu4Path) {
-    Write-Warn "Skipping conversion - EU4 not found"
-    Write-Host ""
-    Read-Host "Press Enter to close"
-    exit 1
+    Write-Err "EU4 not found. Make sure EU4 is installed on this Steam account."
+    Write-Host ""; Read-Host "Press Enter to close"; exit 1
 } else {
-    Write-Warn "Skipping conversion - install missing tools above"
-    Write-Host ""
-    Read-Host "Press Enter to close"
-    exit 1
+    Write-Err "FFmpeg not found. Run: winget install ffmpeg"
+    Write-Host ""; Read-Host "Press Enter to close"; exit 1
+}
+
+# Rebuild media.bnk only if new WEMs were converted
+if (Test-Path $MediaDir) {
+    Write-Status "Rebuilding media.bnk..."
+    $bnkPath = "$BanksDir\eu4_soundtrack_media.bnk"
+    $wems = Get-ChildItem "$MediaDir\*.wem" -EA SilentlyContinue |
+            Where-Object { $_.Name -ne 'test_std_vorbis.wem' } |
+            Sort-Object Name
+    if ($wems.Count -gt 0) {
+        $old = [System.IO.File]::ReadAllBytes($bnkPath)
+        $bkhdSz = [System.BitConverter]::ToUInt32($old, 4)
+        $PREFETCH = 8192
+
+        # Build DIDX and DATA byte arrays
+        $didxMs = New-Object System.IO.MemoryStream
+        $dataMs = New-Object System.IO.MemoryStream
+        $offset = [uint32]0
+
+        foreach ($w in $wems) {
+            $wid = [uint32]::Parse([System.IO.Path]::GetFileNameWithoutExtension($w.Name))
+            $wemBytes = [System.IO.File]::ReadAllBytes($w.FullName)
+            $chunk = New-Object byte[] $PREFETCH
+            $copy = [Math]::Min($wemBytes.Length, $PREFETCH)
+            [System.Buffer]::BlockCopy($wemBytes, 0, $chunk, 0, $copy)
+
+            $didxMs.Write([System.BitConverter]::GetBytes($wid),    0, 4)
+            $didxMs.Write([System.BitConverter]::GetBytes($offset),  0, 4)
+            $didxMs.Write([System.BitConverter]::GetBytes([uint32]$PREFETCH), 0, 4)
+            $dataMs.Write($chunk, 0, $PREFETCH)
+            $offset += [uint32]$PREFETCH
+        }
+
+        $didxArr = $didxMs.ToArray(); $didxMs.Dispose()
+        $dataArr = $dataMs.ToArray(); $dataMs.Dispose()
+
+        $out = New-Object System.IO.MemoryStream
+        $out.Write($old, 0, (8 + $bkhdSz))                                      # BKHD
+        $out.Write([System.Text.Encoding]::ASCII.GetBytes("DIDX"), 0, 4)
+        $out.Write([System.BitConverter]::GetBytes([uint32]$didxArr.Length), 0, 4)
+        $out.Write($didxArr, 0, $didxArr.Length)
+        $out.Write([System.Text.Encoding]::ASCII.GetBytes("DATA"), 0, 4)
+        $out.Write([System.BitConverter]::GetBytes([uint32]$dataArr.Length), 0, 4)
+        $out.Write($dataArr, 0, $dataArr.Length)
+        [System.IO.File]::WriteAllBytes($bnkPath, $out.ToArray())
+        $out.Dispose()
+        Write-Ok "media.bnk rebuilt from $($wems.Count) WEM files"
+    }
 }
 
 # Done - game launched by launch.cmd via %*
