@@ -93,6 +93,10 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 
 [b]"EU4 not found"[/b] — The script finds EU4 automatically through your Steam library. Make sure EU4 is installed on the same Steam account and that Steam is installed.
 
+[b]"packed_codebooks.bin download failed"[/b] — Check your internet connection. The file (~74 KB) is downloaded automatically on first run from github.com/hcs64/ww2ogg
+
+[b]Only a brief sound then silence[/b] — Delete all [code].wem[/code] files from the mod's [code]Media\[/code] folder and re-run the setup script to rebuild the media cache.
+
 [b]Music not playing[/b] — Make sure the mod is enabled and the game was restarted after enabling it
 
 [hr]
