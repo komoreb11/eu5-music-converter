@@ -101,7 +101,6 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 
 After a mod update it is recommended to re-run the setup script once to ensure full compatibility — the script will only convert new tracks and skip everything already done.
 
-[expand type=details]
 [h3]Changelog[/h3]
 
 [b]v1.2[/b] — 179 tracks
@@ -120,7 +119,6 @@ After a mod update it is recommended to re-run the setup script once to ensure f
 [list]
 [*]Initial release — required Wwise Authoring + FFmpeg + setup script
 [/list]
-[/expand]
 
 [hr]
 
