@@ -80,11 +80,10 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 ### Conversion pipeline
 
 ```
-EU4 OGG → ffmpeg (PCM WAV) → oggenc2/aoTuV (OGG floor1) → C# WEM builder → Wwise WEM
+EU4 OGG → ffmpeg (PCM pipe) → oggenc2/aoTuV (OGG floor1) → C# WEM builder → Wwise WEM
 ```
 
-**Why WAV in the middle?**  
-`oggenc2` is a PCM encoder — it can't re-encode Vorbis directly. The WAV step can be eliminated with a pipe (`ffmpeg | oggenc2 -`), but that's an optimization.
+ffmpeg pipes PCM directly to oggenc2 stdin — no temp WAV on disk.
 
 **Why aoTuV specifically?**  
 Standard libvorbis (all quality levels) produces **Vorbis floor type 0**. Wwise's decoder only supports **floor type 1** (aoTuV encoding). The setup script auto-downloads `oggenc2.exe` (aoTuV b6.03, ~1.4 MB) from RareWares on first run.
