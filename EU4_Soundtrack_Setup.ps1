@@ -739,16 +739,19 @@ if ($eu4Path -and $ffmpeg) {
             try {
                 Add-Type -Path $CacheDll -EA Stop
                 $stem = [System.IO.Path]::GetFileNameWithoutExtension($WemPath)
-                $wav  = "$TmpDir\$stem.wav"
                 $ogg  = "$TmpDir\$stem.ogg"
                 New-Item -ItemType Directory -Force $TmpDir | Out-Null
-                # Step 1: OGG -> WAV (PCM) via ffmpeg
-                $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wav 2>&1
-                if ($LASTEXITCODE -ne 0) { return "ffmpeg failed: $($r | Select-Object -Last 3 | Out-String)" }
-                # Step 2: WAV -> OGG (aoTuV floor type 1) via oggenc2
-                $r = & $OggEncPath -q 6 -o $ogg $wav 2>&1
-                if ($LASTEXITCODE -ne 0) { return "oggenc2 failed: $($r | Select-Object -Last 3 | Out-String)" }
-                Remove-Item $wav -EA SilentlyContinue
+                # OGG -> aoTuV OGG via pipe (no temp WAV file)
+                $r = cmd /c "`"ffmpeg`" -y -i `"$OggPath`" -ar 48000 -ac 2 -f wav pipe:1 2>nul | `"$OggEncPath`" -q 6 -o `"$ogg`" - 2>nul"
+                if ($LASTEXITCODE -ne 0 -or -not (Test-Path $ogg)) {
+                    # Fallback: use temp WAV if pipe failed
+                    $wav = "$TmpDir\$stem.wav"
+                    $r = & ffmpeg -y -i $OggPath -ar 48000 -ac 2 -acodec pcm_s16le $wav 2>&1
+                    if ($LASTEXITCODE -ne 0) { return "ffmpeg failed: $($r | Select-Object -Last 3 | Out-String)" }
+                    $r = & $OggEncPath -q 6 -o $ogg $wav 2>&1
+                    if ($LASTEXITCODE -ne 0) { return "oggenc2 failed: $($r | Select-Object -Last 3 | Out-String)" }
+                    Remove-Item $wav -EA SilentlyContinue
+                }
                 # Step 3: OGG -> WEM (external packed codebooks)
                 $res = [OggToWem]::Convert($ogg, $WemPath, $PcbPath)
                 Remove-Item $ogg -EA SilentlyContinue
