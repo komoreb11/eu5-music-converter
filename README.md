@@ -1,6 +1,6 @@
 # EU4 Soundtrack for EU5
 
-Brings 155 tracks from Europa Universalis IV into EU5 — fully integrated into the game's dynamic music engine. War, peace, and cultural context all trigger the right tracks automatically, just like in the original games.
+Brings 179 tracks from Europa Universalis IV into EU5 — fully integrated into the game's dynamic music engine. War, peace, and cultural context all trigger the right tracks automatically, just like in the original games.
 
 **[Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3736271606)**
 
@@ -8,7 +8,7 @@ Brings 155 tracks from Europa Universalis IV into EU5 — fully integrated into 
 
 ## What it does
 
-**155 tracks** from EU4 and its music DLCs are woven into EU5's adaptive music system:
+**179 tracks** from EU4 and its music DLCs are woven into EU5's adaptive music system:
 
 - **At war** — EU4 war tracks play alongside EU5 music
 - **At peace** — EU4 ambient and atmospheric tracks
@@ -53,14 +53,14 @@ After first conversion the launch command and FFmpeg are no longer required.
 
 | Playlist | Trigger | EU4 tracks |
 |----------|---------|-----------|
-| WAR | At war | +126 |
-| PEACE | At peace | +115 |
+| WAR | At war | +146 |
+| PEACE | At peace | +135 |
 | European culture | European nation | +43 |
-| Middle Eastern | Ottoman/Persian/etc. | +15 |
-| East Asian | Chinese/Japanese/etc. | +13 |
+| Middle Eastern | Ottoman/Persian/etc. | +19 |
+| East Asian | Chinese/Japanese/etc. | +15 |
 | Indian | Indian/Central Asian | +5 |
 | African | African nations | +4 |
-| North American | Native American | +3 |
+| North American | Native American | +4 |
 | South American | Inca/South American | +1 |
 
 Regional tracks appear in both WAR/PEACE and their cultural playlist — ~2× playback frequency for matching cultures.
@@ -234,3 +234,22 @@ All mod files are in `loading_screen/` — excluded from EU5's checksum manifest
 ## Legal
 
 Converts audio from the user's own legally-owned EU4 installation. No audio files included or distributed. Requires EU4 + DLCs.
+
+---
+
+## Changelog
+
+**v1.2** — 179 tracks
+- Added 24 previously missing tracks across 13 DLCs: Republican Music, Songs of War, Guns Drums & Steel Vol. 1–2, Songs of Exploration, Kairis Soundtrack, Songs of Regency, Egyptian, Persian, Caucasian, Native America, Central Asia, Central Europe
+- Removed Wwise project from repository
+- Rebuilt HIRC bank with updated track list
+
+**v1.1** — 155 tracks, no Wwise
+- Eliminated Wwise Authoring requirement — full OGG→WEM conversion implemented in C#
+- Auto-download of required tools (oggenc2/aoTuV, packed_codebooks, libFLAC) on first run
+- ffmpeg pipes PCM directly to oggenc2 — no temp WAV on disk
+- media.bnk rebuilt automatically after conversion
+- Auto-detection of Steam library and Workshop mod path
+
+**v1.0** — 155 tracks
+- Initial release — required Wwise Authoring + FFmpeg
