@@ -735,7 +735,7 @@ if (-not $ffmpeg) {
     }
 }
 if (-not $ffmpeg) {
-    Write-Err "FFmpeg not found. Install it: winget install ffmpeg — then restart Steam."
+    Write-Err "FFmpeg not found. Install it: winget install ffmpeg  -- then restart Steam."
     Write-Host ""; Read-Host "Press Enter to close"; exit 1
 }
 Write-Ok "FFmpeg found"
