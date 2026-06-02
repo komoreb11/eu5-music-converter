@@ -714,21 +714,31 @@ Sync-FromGitHub
 # 3. Find EU4 and ffmpeg
 Write-Status "Locating tools..."
 $eu4Path = Find-EU4Path
-if (-not $eu4Path) { Write-Warn "EU4 not found in common Steam paths. Set EU4 path manually." }
-else { Write-Ok "EU4: $eu4Path" }
+if (-not $eu4Path) {
+    Write-Err "EU4 not found. Make sure Europa Universalis IV is installed on this Steam account."
+    Write-Host ""; Read-Host "Press Enter to close"; exit 1
+}
+Write-Ok "EU4: $eu4Path"
 
 $ffmpeg = Get-Command ffmpeg -EA SilentlyContinue
 if (-not $ffmpeg) {
-    $ffpaths = @("$env:ProgramFiles\\ffmpeg\\bin\\ffmpeg.exe",
-        'C:\\ffmpeg\\bin\\ffmpeg.exe','C:\\ffmpeg\\ffmpeg.exe')
+    $ffpaths = @(
+        "$env:ProgramFiles\ffmpeg\bin\ffmpeg.exe",
+        "$env:ProgramFiles\ffmpeg\ffmpeg.exe",
+        'C:\ffmpeg\bin\ffmpeg.exe',
+        'C:\ffmpeg\ffmpeg.exe'
+    )
     foreach ($p in $ffpaths) { if (Test-Path $p) { $ffmpeg = Get-Item $p; break } }
     if (-not $ffmpeg) {
-        $wg = "$env:LOCALAPPDATA\\Microsoft\\WinGet\\Packages"
-        if (Test-Path $wg) { $ffmpeg = Get-ChildItem "$wg\\Gyan.FFmpeg*\\**\\ffmpeg.exe" -Recurse -EA SilentlyContinue | Select-Object -First 1 }
+        $wg = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages"
+        if (Test-Path $wg) { $ffmpeg = Get-ChildItem "$wg\Gyan.FFmpeg*\**\ffmpeg.exe" -Recurse -EA SilentlyContinue | Select-Object -First 1 }
     }
 }
-if (-not $ffmpeg) { Write-Err 'FFmpeg not found! Run: winget install ffmpeg  OR add to PATH' }
-else { Write-Ok "FFmpeg found" }
+if (-not $ffmpeg) {
+    Write-Err "FFmpeg not found. Install it: winget install ffmpeg — then restart Steam."
+    Write-Host ""; Read-Host "Press Enter to close"; exit 1
+}
+Write-Ok "FFmpeg found"
 
 # 3. Check & convert missing tracks
 if ($eu4Path -and $ffmpeg) {
@@ -824,12 +834,6 @@ if ($eu4Path -and $ffmpeg) {
         $skipped = $missing.Count - $workList.Count
         Write-Ok "Done: $done  Failed: $failed  Skipped (no DLC): $skipped"
     }
-} elseif (-not $eu4Path) {
-    Write-Err "EU4 not found. Make sure EU4 is installed on this Steam account."
-    Write-Host ""; Read-Host "Press Enter to close"; exit 1
-} else {
-    Write-Err "FFmpeg not found. Run: winget install ffmpeg"
-    Write-Host ""; Read-Host "Press Enter to close"; exit 1
 }
 
 # Rebuild media.bnk only if new WEMs were converted
