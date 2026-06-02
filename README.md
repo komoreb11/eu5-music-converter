@@ -1,109 +1,122 @@
 # EU4 Soundtrack for EU5
 
-Brings the music of Europa Universalis IV into EU5 — fully integrated into the game's dynamic music engine. War, peace, and cultural context all trigger the right tracks automatically, just like in the original games.
+Brings 155 tracks from Europa Universalis IV into EU5's dynamic music system — without Wwise, without redistributing any audio.
+
+**[Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3736271606)**
 
 ---
 
-## What it does
+## Requirements
 
-**155 tracks** from EU4 and its music DLCs are woven into EU5's adaptive music system:
+- **Europa Universalis IV** installed on the same Steam account
+- **FFmpeg** — `winget install ffmpeg`
 
-- **At war** → EU4 war tracks play alongside EU5 music
-- **At peace** → EU4 ambient and atmospheric tracks
-- **Cultural context** → regional EU4 music matches your nation's culture group:
-  - European nations hear British, French, HRE, Scandinavian, Russian, Iberian tracks
-  - Ottoman/Persian/Egyptian/Caucasian → Middle Eastern tracks
-  - Chinese/Japanese/SEA → East Asian tracks
-  - Indian, African, American nations get their own regional tracks
-- **Music Player "Next"** — cycles through EU4 tracks during active war/peace state
-
-> **Note:** EU4 track names won't appear in the Music Player list. The music plays automatically in the background based on game state — you'll just hear it change. This is intentional to keep the mod multiplayer-compatible (no checksum change).
-
----
-
-## Requirements — read before installing
-
-**1. Europa Universalis IV** must be installed on the same Steam account.
-The mod reads audio files directly from your EU4 folder — it does not download or redistribute any music.
-Only tracks from DLCs you own will be included.
-
-**2. Wwise Authoring Tools 2026.x** (free)
-Required to convert EU4 audio to EU5-compatible format (WEM).
-Download: [audiokinetic.com/en/download](https://www.audiokinetic.com/en/download/) — create a free account, install "Authoring" component only (~2 GB).
-
-**3. FFmpeg**
-Audio conversion tool. Install via terminal:
-```
-winget install ffmpeg
-```
-Or download from [ffmpeg.org](https://ffmpeg.org) and add to PATH.
+That's it. No Wwise, no Python, no manual steps beyond the launch option.
 
 ---
 
 ## Installation
 
-**Step 1.** Make sure all three requirements above are installed.
-
-**Step 2.** In Steam → right-click EU5 → Properties → **Launch Options**, paste:
+Add to EU5 **Launch Options** in Steam:
 
 ```
 cmd /c "curl -sL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/launch.cmd & call %TEMP%\eu4launch.cmd %command%"
 ```
 
-**Step 3.** Enable the mod in the EU5 launcher and launch the game.
-
-**First launch** — a setup window will appear and convert all EU4 tracks to the correct format. This takes **15–30 minutes** depending on your hardware. The game will start automatically when it's done.
-
-**All future launches** — the check takes ~2 seconds. Only missing or new tracks are converted.
+First launch converts all EU4 tracks (~2–5 min). Game starts automatically when done.
 
 ---
 
-## How the music works
+## How it works — technical details
 
-EU5 uses Wwise for its entire audio system. This mod patches the Wwise sound banks at the binary level — adding EU4 track references into EU5's existing WAR, PEACE, and cultural playlists. No EU5 tracks are replaced or removed.
+### Audio conversion pipeline
 
-| Playlist | Trigger | EU4 tracks added |
-|----------|---------|-----------------|
-| WAR | Player is at war | +126 tracks |
-| PEACE | Player is at peace | +115 tracks |
-| European culture | European nation | +43 tracks |
-| Middle Eastern culture | Ottoman/Persian/etc. | +15 tracks |
-| East Asian culture | Chinese/Japanese/etc. | +13 tracks |
-| Indian culture | Indian/Central Asian | +5 tracks |
-| African culture | African nations | +4 tracks |
-| North American culture | Native American | +3 tracks |
-| South American culture | Inca/South American | +1 track |
+```
+EU4 OGG → ffmpeg (decode to PCM WAV) → oggenc2/aoTuV (re-encode floor type 1) → C# WEM builder → Wwise WEM
+```
 
-Neutral and discovery tracks appear in both WAR and PEACE playlists, so they play regardless of war state.
+**Why not direct OGG→WEM?**  
+Standard libvorbis produces Vorbis floor type 0. Wwise requires floor type 1 (aoTuV encoding). The script auto-downloads `oggenc2.exe` (aoTuV b6.03) from RareWares.
+
+**Why not Wwise anymore?**  
+Previous v1 used WwiseConsole.exe for conversion (2GB install, account required). v2 replaces it entirely by reverse-engineering the WEM format.
+
+### WEM format (Wwise v150, external packed codebooks)
+
+EU5 uses **Wwise Modified Vorbis** with **external packed codebooks** (`packed_codebooks_aoTuV_603.bin`). The WEM structure:
+
+```
+RIFF/WAVE
+├── fmt  (66 bytes) — codec 0xFFFF, Wwise fmt extra with seek table info
+├── hash (16 bytes) — unused
+└── data
+    ├── seek_table    — uint32[] packet offsets every ~2048 bytes
+    ├── size_prefix   — uint16 setup size
+    ├── wwise_setup   — codebook IDs (10-bit each) + floor/residue/mapping/mode
+    └── audio_packets — [size(2)][modified_vorbis_packet]
+```
+
+**Setup conversion** (std Vorbis → Wwise):
+- Codebooks: match each std Vorbis codebook against `packed_codebooks_aoTuV_603.bin` → write 10-bit ID
+- `time_type` fields: omitted in Wwise (hardcoded 0)
+- `floor_type` fields: omitted in Wwise (hardcoded 1)
+- `residue_type`: 16 bits → 2 bits
+- `mapping_type`: omitted (hardcoded 0)
+- `mode windowtype/transformtype`: omitted (hardcoded 0)
+- `mapping_count_m1`: 6 bits in both std Vorbis and Wwise (despite spec saying 4)
+
+**Audio packet conversion** (std Vorbis → Wwise modified):
+- Remove 1-bit packet type prefix (always 0)
+- For long-mode packets: remove 2 window type bits (prev/next)
+- Wwise derives window types from adjacent packet mode numbers at decode time
+
+### Sound bank patching
+
+EU5's music system is in `sb_music_logic.bnk` (Wwise v150 HIRC format). The mod creates `eu4_soundtrack_music.bnk` loaded after EU5's bank ("last loaded wins"):
+
+- **WAR container** (`0x3de374bf`): +126 EU4 segments added to StepRandom
+- **PEACE container** (`0x290f1591`): +115 EU4 segments added to StepRandom  
+- **Cultural playlists** (7 containers): regional EU4 tracks matched by `stg_local_context_culture` state
+
+Each EU4 track creates HIRC objects: MusicTrack → MusicSegment → inserted into playlist StepRandom leaf items. The patch avoids updating `ulNumChilds` to prevent `result:15` circular dependency errors.
+
+### Media bank
+
+`eu4_soundtrack_media.bnk` contains prefetch data (first 8192 bytes of each WEM). Required for seamless streaming — without it Wwise can't find packet boundaries after the prefetch boundary.
+
+Prefetch is rebuilt automatically when new WEMs are generated (`$done > 0`).
+
+### Determinism
+
+The conversion is deterministic: same EU4 source + same oggenc2 version → identical WEM files across machines. Users with identical DLC sets produce bit-for-bit identical WEMs.
+
+### Music system modes
+
+EU5's `mus_systemType` state group controls playback:
+- `dynamic_all` — WAR/PEACE + cultural playlists simultaneously (cultural tends to dominate)
+- `dynamic_cinematic` — WAR/PEACE only (most varied, recommended)
+- `dynamic_cultural` — cultural only
 
 ---
 
-## Included DLCs
+## Multiplayer compatibility
 
-Tracks from any of these DLCs you own will be automatically included:
-
-Base Game · Songs of the New World · Republican Music · Songs of War · Guns Drums & Steel Vol. 1–3 · Songs of Exploration · Kairis Soundtrack Parts 1–3 · Songs of Regency · Rule Britannia · Dharma · Golden Century · Emperor · North America · South-East Asia · West Africa · East Africa · Scandinavia · Baltics · Ottoman · Chinese · French · Egyptian · Persian · Caucasian · Utopia HRE · 10th Anniversary · The Rus Awaken · Kairis Ottoman Tunes · Native America · Central Asia · Central Europe
-
-**Not included:** Sabaton Soundtrack, Fredman's Epistles — these contain third-party licensed music and cannot be redistributed or converted.
+All files in `loading_screen/` are excluded from EU5's checksum. No checksum change, fully multiplayer-compatible.
 
 ---
 
-## Troubleshooting
+## Files
 
-**"Wwise not found"** — Install Wwise Authoring from audiokinetic.com (free account required)
-
-**"FFmpeg not found"** — Run `winget install ffmpeg` in PowerShell, then restart Steam
-
-**"EU4 not found"** — EU4 must be installed in a default Steam library path. If it's on a custom drive, edit `EU4_PATH` in `build_mod.py`
-
-**Music not playing** — Make sure the mod is enabled in the EU5 launcher and the first-time conversion completed successfully
-
-**Enabled mod in-game but music still not playing** — If you enabled the mod through the EU5 in-game mods menu (not the launcher), you must **fully restart the game** for the audio banks to load. Save and quit to desktop, then relaunch EU5.
+| File | Purpose |
+|------|---------|
+| `EU4_Soundtrack_Setup.ps1` | Main Windows setup script (v2, no Wwise) |
+| `launch.cmd` | Steam launch wrapper — downloads and runs setup script |
+| `build_mod.py` | Developer tool — builds `eu4_soundtrack_music.bnk` from scratch |
+| `loading_screen/sound/banks/windows/eu4_soundtrack_music.bnk` | Wwise HIRC bank with EU4 track routing |
+| `loading_screen/sound/banks/windows/SoundbanksInfo.json` | Wwise bank manifest |
 
 ---
 
 ## Legal
 
-This mod converts audio from your own legally-owned EU4 installation. No copyrighted audio files are included or distributed. Requires valid copies of EU4 and any DLCs you want to include.
-
-Source: [github.com/komoreb11/eu5-music-converter](https://github.com/komoreb11/eu5-music-converter)
+Converts audio from the user's own legally-owned EU4 installation. No audio files distributed. Requires EU4 + DLCs.
