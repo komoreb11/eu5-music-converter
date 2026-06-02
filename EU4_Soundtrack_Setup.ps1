@@ -23,22 +23,32 @@ $ErrorActionPreference = "Continue"
 $Host.UI.RawUI.WindowTitle = "EU4 Soundtrack Setup"
 
 # --- CONFIG ------------------------------------------------
-# Auto-detect eu4_soundtrack Workshop mod
+# Auto-detect eu4_soundtrack Workshop mod via Steam registry + libraryfolders.vdf
 $ModDir = $null
-foreach ($steamDrive in @("E:","D:","C:")) {
-    foreach ($steamLib in @("SteamLibrary","Program Files (x86)\Steam")) {
-        $wBase = "$steamDrive\$steamLib\steamapps\workshop\content\3450310"
-        if (-not (Test-Path $wBase)) { continue }
-        foreach ($wDir in (Get-ChildItem $wBase -Directory -EA SilentlyContinue)) {
-            $meta = "$($wDir.FullName)\.metadata\metadata.json"
-            if (Test-Path $meta) {
-                $json = Get-Content $meta -Raw -EA SilentlyContinue
-                if ($json -like '*"eu4_soundtrack"*') {
-                    $ModDir = $wDir.FullName; break
-                }
-            }
+$steamLibPaths = @()
+$steamRoot = $null
+try { $steamRoot = (Get-ItemProperty "HKCU:\Software\Valve\Steam" -EA Stop).SteamPath -replace '/','\\' } catch {}
+if (-not $steamRoot) {
+    try { $steamRoot = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam" -EA Stop).InstallPath } catch {}
+}
+if ($steamRoot -and (Test-Path $steamRoot)) {
+    $steamLibPaths += $steamRoot
+    $vdf = "$steamRoot\steamapps\libraryfolders.vdf"
+    if (Test-Path $vdf) {
+        Get-Content $vdf | Select-String '"path"' | ForEach-Object {
+            if ($_ -match '"path"\s+"([^"]+)"') { $steamLibPaths += $Matches[1] -replace '\\\\','\\' }
         }
-        if ($ModDir) { break }
+    }
+}
+foreach ($lib in $steamLibPaths) {
+    $wBase = "$lib\steamapps\workshop\content\3450310"
+    if (-not (Test-Path $wBase)) { continue }
+    foreach ($wDir in (Get-ChildItem $wBase -Directory -EA SilentlyContinue)) {
+        $meta = "$($wDir.FullName)\.metadata\metadata.json"
+        if (Test-Path $meta) {
+            $json = Get-Content $meta -Raw -EA SilentlyContinue
+            if ($json -like '*"eu4_soundtrack"*') { $ModDir = $wDir.FullName; break }
+        }
     }
     if ($ModDir) { break }
 }
