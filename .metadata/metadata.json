@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"game_id": "eu5",
 	"supported_game_version": "1.*",
-	"short_description": "Adds 155 tracks from EU4 and its DLCs to EU5 dynamic music system. War, peace and cultural music plays automatically. Multiplayer compatible. Requires EU4 + Wwise + FFmpeg (see description).",
+	"short_description": "Adds 179 tracks from EU4 and its DLCs to EU5 dynamic music system. War, peace and cultural music plays automatically. Multiplayer compatible. Requires EU4 + FFmpeg (see description).",
 	"tags": [
 		"Music"
 	],

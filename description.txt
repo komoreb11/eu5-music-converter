@@ -4,7 +4,7 @@ Brings the music of Europa Universalis IV into EU5 — fully integrated into the
 
 [h2]What it does[/h2]
 
-[b]155 tracks[/b] from EU4 and its music DLCs are woven into EU5's adaptive music system:
+[b]179 tracks[/b] from EU4 and its music DLCs are woven into EU5's adaptive music system:
 
 [list]
 [*][b]At war[/b] — EU4 war tracks play alongside EU5 music
@@ -60,14 +60,14 @@ After the initial conversion the launch command and FFmpeg are no longer require
 EU5 uses Wwise for its entire audio system. This mod patches the Wwise sound banks at the binary level — adding EU4 track references into EU5's existing WAR, PEACE, and cultural playlists. No EU5 tracks are replaced or removed.
 
 [list]
-[*][b]WAR[/b] — +126 EU4 tracks (player at war)
-[*][b]PEACE[/b] — +115 EU4 tracks (player at peace)
+[*][b]WAR[/b] — +146 EU4 tracks (player at war)
+[*][b]PEACE[/b] — +135 EU4 tracks (player at peace)
 [*][b]European culture[/b] — +43 tracks
-[*][b]Middle Eastern culture[/b] (Ottoman/Persian/etc.) — +15 tracks
-[*][b]East Asian culture[/b] (Chinese/Japanese/etc.) — +13 tracks
+[*][b]Middle Eastern culture[/b] (Ottoman/Persian/etc.) — +19 tracks
+[*][b]East Asian culture[/b] (Chinese/Japanese/etc.) — +15 tracks
 [*][b]Indian culture[/b] — +5 tracks
 [*][b]African culture[/b] — +4 tracks
-[*][b]North American culture[/b] — +3 tracks
+[*][b]North American culture[/b] — +4 tracks
 [*][b]South American culture[/b] — +1 track
 [/list]
 
@@ -101,6 +101,33 @@ F:\SteamLibrary\steamapps\common\Europa Universalis IV[/code]
 Also checks Windows registry automatically.
 
 [b]Music not playing[/b] — Make sure the mod is enabled and the game was restarted after enabling it
+
+[hr]
+
+[h2]Update notes[/h2]
+
+After a mod update it is recommended to re-run the setup script once to ensure full compatibility — the script will only convert new tracks and skip everything already done.
+
+[expand type=details]
+[h3]Changelog[/h3]
+
+[b]v1.2[/b] — 179 tracks
+[list]
+[*]Added 24 previously missing tracks: Republican Music (2), Songs of War (2), Guns Drums & Steel Vol. 1–2 (5), Songs of Exploration (2), Kairis Soundtrack (2), Songs of Regency (2), Egyptian (2), Persian (2), Caucasian (2), Native America (1), Central Asia (1), Central Europe (1)
+[/list]
+
+[b]v1.1[/b] — 155 tracks, no Wwise
+[list]
+[*]Wwise Authoring no longer required — setup script now handles full conversion automatically
+[*]Required tools (oggenc2, packed_codebooks) downloaded automatically on first run
+[*]Only FFmpeg needed
+[/list]
+
+[b]v1.0[/b] — 155 tracks
+[list]
+[*]Initial release — required Wwise Authoring + FFmpeg + setup script
+[/list]
+[/expand]
 
 [hr]
 

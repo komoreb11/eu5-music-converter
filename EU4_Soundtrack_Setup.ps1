@@ -43,7 +43,7 @@ foreach ($steamDrive in @("E:","D:","C:")) {
     if ($ModDir) { break }
 }
 if (-not $ModDir) {
-    Write-Err "EU4 Soundtrack mod not found in Steam Workshop. Subscribe to the mod first."
+    Write-Host "[X]  EU4 Soundtrack mod not found in Steam Workshop. Subscribe to the mod first." -ForegroundColor Red
     Write-Host ""
     Read-Host "Press Enter to close"
     exit 1
@@ -533,6 +533,30 @@ $Tracks = @(
     "MusicPlayer_eu4_cas_mughal_indian_persian|music/mughal_indian_persian.ogg|dlc139_central_asia_music_pack"
     "MusicPlayer_eu4_ce_austria_theme|music/austria_theme.ogg|dlc140_central_europe_music_pack"
     "MusicPlayer_eu4_ce_hungary_theme|music/hungary_theme.ogg|dlc140_central_europe_music_pack"
+    "MusicPlayer_eu4_ce_netherlands_theme|music/netherlands_theme.ogg|dlc140_central_europe_music_pack"
+    "MusicPlayer_eu4_rmp_introductions|music/Introductions.ogg|dlc026_republican_music"
+    "MusicPlayer_eu4_rmp_piano_concerto|music/Piano_Concerto_No_1000.ogg|dlc026_republican_music"
+    "MusicPlayer_eu4_sow_lautunno|music/sow_lautunno.ogg|dlc030_songs_of_war"
+    "MusicPlayer_eu4_sow_the_siege|music/sow_the_siege.ogg|dlc030_songs_of_war"
+    "MusicPlayer_eu4_gds_rideforthvictoriously|music/031_rideforthvictoriously.ogg|dlc031_guns_drums_and_steel"
+    "MusicPlayer_eu4_gds_thestageisset|music/031_thestageisset.ogg|dlc031_guns_drums_and_steel"
+    "MusicPlayer_eu4_soe_redsun|music/soe_redsun.ogg|dlc036_songs_of_exploration"
+    "MusicPlayer_eu4_soe_theconqueror|music/soe_theconqueror.ogg|dlc036_songs_of_exploration"
+    "MusicPlayer_eu4_gds2_commerceinthepeninsula|music/037_commerceinthepeninsula.ogg|dlc037_guns_drums_and_steel_volume_2"
+    "MusicPlayer_eu4_gds2_theageofdiscovery|music/037_theageofdiscovery.ogg|dlc037_guns_drums_and_steel_volume_2"
+    "MusicPlayer_eu4_gds2_thestonemasons|music/037_thestonemasons.ogg|dlc037_guns_drums_and_steel_volume_2"
+    "MusicPlayer_eu4_kairis_silken_path|music/Silken_Path.ogg|dlc044_kairis_soundtrack"
+    "MusicPlayer_eu4_kairis_takeda_sunrise|music/Takeda_Sunrise.ogg|dlc044_kairis_soundtrack"
+    "MusicPlayer_eu4_sormp_i_didnt_choose|music/sormp_I_didnt_choose_this_life_it_chose_me_Ambient.ogg|dlc063_songs_of_regency"
+    "MusicPlayer_eu4_sormp_our_destiny|music/sormp_Our_Destiny_Ambient.ogg|dlc063_songs_of_regency"
+    "MusicPlayer_eu4_egy_pharaohs_new_era|music/pharaohs_of_a_new_era.ogg|dlc130_egyptian_music_pack"
+    "MusicPlayer_eu4_egy_ruler_pyramids|music/ruler_of_the_pyramids.ogg|dlc130_egyptian_music_pack"
+    "MusicPlayer_eu4_per_mount_damavand|music/mount_damavand.ogg|dlc131_persian_music_pack"
+    "MusicPlayer_eu4_per_nader_shah|music/nader_shah.ogg|dlc131_persian_music_pack"
+    "MusicPlayer_eu4_cau_days_of_glory|music/days_of_glory.ogg|dlc132_caucasian_music_pack"
+    "MusicPlayer_eu4_cau_sight_black_sea|music/sight_of_the_black_sea.ogg|dlc132_caucasian_music_pack"
+    "MusicPlayer_eu4_natam_mayan_theme|music/mayan_theme.ogg|dlc138_native_america_music_pack"
+    "MusicPlayer_eu4_cas_oman_arabic|music/oman_arabic.ogg|dlc139_central_asia_music_pack"
 )
 
 # --- FUNCTIONS ---------------------------------------------
