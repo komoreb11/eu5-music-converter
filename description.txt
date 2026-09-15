@@ -11,9 +11,9 @@ Brings the music of Europa Universalis IV into EU5 — fully integrated into the
 [*][b]At peace[/b] — EU4 ambient and atmospheric tracks
 [*][b]Cultural context[/b] — regional EU4 music matches your nation's culture group:
 [list]
-[*]European nations hear British, French, HRE, Scandinavian, Russian, Iberian tracks
-[*]Ottoman/Persian/Egyptian/Caucasian → Middle Eastern tracks
-[*]Chinese/Japanese/SEA → East Asian tracks
+[*]European nations hear British, French, HRE, Scandinavian, Russian, Iberian, Caucasian tracks
+[*]Ottoman/Persian/Egyptian/Arab/Central Asian → Middle Eastern tracks
+[*]Chinese/Japanese → East Asian tracks, South-East Asia → Indian tracks
 [*]Indian, African, American nations get their own regional tracks
 [/list]
 [/list]
@@ -45,13 +45,13 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [b]Step 2.[/b] In Steam → right-click EU5 → Properties → [b]Launch Options[/b], paste:
 
-[code]cmd /c "curl -sL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/launch.cmd & call %TEMP%\eu4launch.cmd %command%"[/code]
+[code]cmd /c "curl -sfL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/launch.cmd & call %TEMP%\eu4launch.cmd %command%"[/code]
 
 [b]Step 3.[/b] Launch EU5. A setup window will appear and convert all EU4 tracks (~2–5 minutes). The game starts automatically when done.
 
 [b]Step 4.[/b] Once in the game, open the mods menu → enable [b]EU4 Soundtrack for EU5[/b] → restart the game.
 
-After the initial conversion the launch command and FFmpeg are no longer required — the mod works without them. You can uninstall them, or keep them if you want the setup to automatically sync any new EU4 tracks added to your game folder.
+After the initial conversion FFmpeg is no longer required. [b]Keep the launch command[/b]: on every launch it updates the setup and rebuilds the mod's sound banks from the tracks you actually have and the current EU5 version (takes a second), so fixes, EU5 patches and newly bought DLCs just work.
 
 [hr]
 
@@ -62,18 +62,20 @@ EU5 uses Wwise for its entire audio system. This mod patches the Wwise sound ban
 [list]
 [*][b]WAR[/b] — +146 EU4 tracks (player at war)
 [*][b]PEACE[/b] — +135 EU4 tracks (player at peace)
-[*][b]European culture[/b] — +43 tracks
-[*][b]Middle Eastern culture[/b] (Ottoman/Persian/etc.) — +19 tracks
-[*][b]East Asian culture[/b] (Chinese/Japanese/etc.) — +15 tracks
-[*][b]Indian culture[/b] — +5 tracks
+[*][b]European culture[/b] (incl. Caucasus) — +48 tracks
+[*][b]Middle Eastern culture[/b] (Ottoman/Persian/Arab/Central Asian) — +19 tracks
+[*][b]East Asian culture[/b] (Chinese/Japanese/etc.) — +13 tracks
+[*][b]Indian culture[/b] (incl. South-East Asia) — +6 tracks
 [*][b]African culture[/b] — +4 tracks
-[*][b]North American culture[/b] — +4 tracks
-[*][b]South American culture[/b] — +1 track
+[*][b]North American culture[/b] — +1 track
+[*][b]South American culture[/b] (incl. Aztec/Maya) — +4 tracks
 [/list]
 
 Neutral and discovery tracks appear in both WAR and PEACE playlists, so they play regardless of war state.
 
-Regional tracks (British, Ottoman, East Asian, etc.) are added to both the WAR/PEACE playlists and their matching cultural playlist — so they play roughly twice as often as neutral tracks for nations of that culture.
+Regional tracks (British, Ottoman, East Asian, etc.) are added to both the WAR/PEACE playlists and their matching cultural playlist. In the cultural playlist an EU4 regional track is picked instead of an EU5 soloist piece at the start of the cultural music cycle (about half the time), and the rest of EU5's cultural music plays as designed.
+
+Only tracks you actually have are added to the playlists — no silence for DLCs you don't own.
 
 [hr]
 
@@ -95,7 +97,7 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 
 [b]"packed_codebooks.bin download failed"[/b] — Check your internet connection. The file (~74 KB) is downloaded automatically on first run from github.com/hcs64/ww2ogg
 
-[b]Only a brief sound then silence[/b] — Delete all [code].wem[/code] files from the mod's [code]Media\[/code] folder and re-run the setup script to rebuild the media cache.
+[b]Only a brief sound then silence / silent gaps[/b] — Make sure the launch option is still set and start the game once: the setup rebuilds both sound banks from your converted tracks.
 
 [b]Music not playing[/b] — Make sure the mod is enabled and the game was restarted after enabling it
 
@@ -103,9 +105,20 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 
 [h2]Update notes[/h2]
 
-After a mod update it is recommended to re-run the setup script once to ensure full compatibility — the script will only convert new tracks and skip everything already done.
+Updates are delivered through the setup script: just start the game with the launch option. It rebuilds the sound banks and converts only new tracks, skipping everything already done.
 
 [h3]Changelog[/h3]
+
+[b]v1.3[/b] — fixes (delivered by the setup script, just start the game with the launch option)
+[list]
+[*]Fixed: war and peace music were swapped (EU4 war tracks played at peace and vice versa)
+[*]Fixed: silence for players without every music DLC — the sound banks are now built on your PC and only contain tracks you have
+[*]Fixed: cultural playlists were scrambled; EU4 regional tracks now alternate with EU5 soloist pieces and EU5's cultural music plays as designed
+[*]Fixed: the mod no longer overrides EU5 music data with an outdated copy after game patches
+[*]Fixed: silence for the 24 tracks added in v1.2 (media bank was not rebuilt after the mod update)
+[*]Fixed regional music: Aztec and Mayan themes play for Mesoamerican cultures, Caucasian tracks for Georgians/Armenians, Central Asian hordes for Uzbeks/Tatars, South-East Asian tracks for Khmer/Thai/Burmese/Malay nations
+[*]Interrupted conversions no longer leave broken tracks behind; FFmpeg is only needed when there is something to convert
+[/list]
 
 [b]v1.2[/b] — 179 tracks
 [list]

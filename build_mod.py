@@ -174,8 +174,8 @@ TRACKS = [
     EU4Track("MusicPlayer_eu4_na_cautious_preparation","music/cautious_preparation.ogg","dlc108_north_america_music","neutral",None),
     EU4Track("MusicPlayer_eu4_na_signs_of_victory","music/signs_of_victory.ogg","dlc108_north_america_music","war",None),
     # DLC 109
-    EU4Track("MusicPlayer_eu4_sea_discoveries_revealed","music/discoveries_revealed.ogg","dlc109_south_east_asia_music","discovery","east_asian"),
-    EU4Track("MusicPlayer_eu4_sea_undisclosed_tactics","music/undisclosed_tactics.ogg","dlc109_south_east_asia_music","war","east_asian"),
+    EU4Track("MusicPlayer_eu4_sea_discoveries_revealed","music/discoveries_revealed.ogg","dlc109_south_east_asia_music","discovery","south_east_asian"),
+    EU4Track("MusicPlayer_eu4_sea_undisclosed_tactics","music/undisclosed_tactics.ogg","dlc109_south_east_asia_music","war","south_east_asian"),
     EU4Track("MusicPlayer_eu4_sea_undiscovered_territory","music/undiscovered_territory.ogg","dlc109_south_east_asia_music","discovery",None),
     # DLC 112
     EU4Track("MusicPlayer_eu4_waf_new_destiny_awaits","music/a_new_destiny_awaits.ogg","dlc112_west_african_music_pack","neutral","west_african"),
@@ -260,7 +260,7 @@ TRACKS = [
     EU4Track("MusicPlayer_eu4_ksp3_city_worlds_desire","music/city_of_the_world_s_desire.ogg","dlc134_kairis_soundtrack_part_3","neutral","ottoman"),
     EU4Track("MusicPlayer_eu4_ksp3_crossing_seas","music/crossing_the_seas.ogg","dlc134_kairis_soundtrack_part_3","discovery",None),
     EU4Track("MusicPlayer_eu4_ksp3_eastern_mists","music/eastern_mists.ogg","dlc134_kairis_soundtrack_part_3","neutral","east_asian"),
-    EU4Track("MusicPlayer_eu4_ksp3_fine_day_sacrifice","music/fine_day_for_sacrifice.ogg","dlc134_kairis_soundtrack_part_3","war","north_american"),
+    EU4Track("MusicPlayer_eu4_ksp3_fine_day_sacrifice","music/fine_day_for_sacrifice.ogg","dlc134_kairis_soundtrack_part_3","war","mesoamerican"),
     EU4Track("MusicPlayer_eu4_ksp3_gaelic_summers","music/gaelic_summers.ogg","dlc134_kairis_soundtrack_part_3","peace","british_isles"),
     EU4Track("MusicPlayer_eu4_ksp3_hundred_years_war","music/hundred_years_war.ogg","dlc134_kairis_soundtrack_part_3","war","french"),
     EU4Track("MusicPlayer_eu4_ksp3_la_bataille_iberia","music/la_bataille_de_iberia.ogg","dlc134_kairis_soundtrack_part_3","war","iberian"),
@@ -270,12 +270,12 @@ TRACKS = [
     EU4Track("MusicPlayer_eu4_ksp3_shogunate_fall","music/the_shogunate_will_fall.ogg","dlc134_kairis_soundtrack_part_3","war","east_asian"),
     EU4Track("MusicPlayer_eu4_ksp3_siege_of_vienna","music/the_siege_of_vienna.ogg","dlc134_kairis_soundtrack_part_3","war","central_european"),
     # DLC 138
-    EU4Track("MusicPlayer_eu4_natam_aztec_theme","music/aztec_theme.ogg","dlc138_native_america_music_pack","neutral","north_american"),
+    EU4Track("MusicPlayer_eu4_natam_aztec_theme","music/aztec_theme.ogg","dlc138_native_america_music_pack","neutral","mesoamerican"),
     EU4Track("MusicPlayer_eu4_natam_inca_theme","music/inca_theme.ogg","dlc138_native_america_music_pack","neutral","south_american"),
-    EU4Track("MusicPlayer_eu4_natam_mayan_theme","music/mayan_theme.ogg","dlc138_native_america_music_pack","neutral","north_american"),
+    EU4Track("MusicPlayer_eu4_natam_mayan_theme","music/mayan_theme.ogg","dlc138_native_america_music_pack","neutral","mesoamerican"),
     # DLC 139
     EU4Track("MusicPlayer_eu4_cas_hordes_centralasian","music/hordes_centralasian.ogg","dlc139_central_asia_music_pack","war","central_asian"),
-    EU4Track("MusicPlayer_eu4_cas_mughal_indian_persian","music/mughal_indian_persian.ogg","dlc139_central_asia_music_pack","neutral","central_asian"),
+    EU4Track("MusicPlayer_eu4_cas_mughal_indian_persian","music/mughal_indian_persian.ogg","dlc139_central_asia_music_pack","neutral","south_asian"),
     EU4Track("MusicPlayer_eu4_cas_oman_arabic","music/oman_arabic.ogg","dlc139_central_asia_music_pack","neutral","middle_eastern"),
     # DLC 140
     EU4Track("MusicPlayer_eu4_ce_austria_theme","music/austria_theme.ogg","dlc140_central_europe_music_pack","neutral","central_european"),
@@ -374,6 +374,8 @@ def make_bank(version, bank_id, hirc_objs, wem_entries=None):
     bkhd = pack_u32(version) + pack_u32(bank_id) + pack_u32(0x17705D3E) + pack_u32(0x10) + pack_u32(0x387C) + pack_u32(0) + guid
     out  = b'BKHD' + pack_u32(len(bkhd)) + bkhd
     if wem_entries:
+        # Wwise writes DIDX sorted by media ID (all EU5 media banks are) - keep that order
+        wem_entries = sorted(wem_entries, key=lambda e: e[0])
         didx = b''; data = b''; off = 0
         for wid, wdata in wem_entries:
             pad = (16 - off%16) % 16
@@ -389,25 +391,70 @@ def make_bank(version, bank_id, hirc_objs, wem_entries=None):
 
 # ─── PLAYLIST PATCHING ──────────────────────────────────────────────────────
 
-def _patch_steprand_no_children(content: bytes, seg_ids: list, gap: int) -> bytes:
-    """Add segments to StepRandom WITHOUT updating Children list.
-    Skipping Children list update avoids result:15 circular dependency.
-    gap=189 for WAR/PEACE, gap=95 for most culture, gap=236 for middle_east."""
-    c = bytearray(content); n = len(seg_ids)
-    ch = struct.unpack('<I', c[32:36])[0]
-    ch_end = 36 + ch * 4
-    ni_off = ch_end + gap
-    c[ni_off:ni_off+4] = pack_u32(struct.unpack('<I', c[ni_off:ni_off+4])[0] + n)
-    root_off = ni_off + 4; step_off = root_off + 30
-    sn = struct.unpack('<I', c[step_off+8:step_off+12])[0]
-    c[step_off+8:step_off+12] = pack_u32(sn + n)
-    leaf_end = step_off + 30 + sn * 30
-    leaves = b''
-    for i, sid in enumerate(seg_ids):
-        iid = (sid ^ 0xC0FFEE00 ^ i) & 0xFFFFFFFF
-        leaves += pack_u32(sid)+pack_u32(iid)+pack_u32(0)+struct.pack('<i',-1)+pack_u16(1)+pack_u16(0)+pack_u16(0)+pack_u32(50000)+pack_u16(0)+b'\x00\x00'
-    c = c[:leaf_end] + leaves + c[leaf_end:]
-    return bytes(c)
+# AkMusicRanSeqPlaylistItem (30 bytes): SegmentID, playlistItemID, NumChildren,
+# eRSType (-1 leaf, 0/1 sequence, 2/3 random), Loop, LoopMin, LoopMax, Weight,
+# wAvoidRepeatCount, bIsUsingWeight, bIsShuffle. Items are stored pre-order.
+PL_ITEM = struct.Struct('<IIIiHHHIHBB')
+
+def _subtree_end(items, k):
+    """Index just past the subtree rooted at items[k], or -1 if the tree is malformed."""
+    pending = 1
+    while pending:
+        if k >= len(items): return -1
+        pending += items[k][2] - 1
+        k += 1
+    return k
+
+def parse_playlist(content: bytes):
+    """The playlist tree is the last field of a MusicRanSeqCntr. Returns
+    (offset of numPlaylistItems, items) - no need to parse the variable-size
+    node/transition params in front of it."""
+    for off in range(len(content) - 4 - PL_ITEM.size, -1, -1):
+        n = struct.unpack_from('<I', content, off)[0]
+        if n == 0 or off + 4 + n * PL_ITEM.size != len(content): continue
+        items = [list(PL_ITEM.unpack_from(content, off + 4 + k * PL_ITEM.size)) for k in range(n)]
+        if _subtree_end(items, 0) == n:
+            return off, items
+    return None
+
+def insert_playlist_leaves(content: bytes, container_id: int, seg_ids: list, join_pool: bool) -> bytes:
+    """Add segments to a playlist WITHOUT updating the Children list
+    (updating it causes result:15 circular dependency).
+    EU4_Soundtrack_Setup.ps1 (BankBuilder.InsertLeaves) mirrors this logic."""
+    parsed = parse_playlist(content)
+    if parsed is None:
+        raise ValueError(f"playlist of {container_id:08x} not found")
+    off, items = parsed
+    n = len(seg_ids)
+    leaves = [[sid, (sid ^ 0xC0FFEE00 ^ i) & 0xFFFFFFFF, 0, -1, 1, 0, 0, 50000, 0, 0, 0]
+              for i, sid in enumerate(seg_ids)]
+    group = [0, make_id(f"eu4_soundtrack_group_{container_id}"), n, 3, 1, 0, 0,
+             50000, min(n - 1, n // 2), 1, 1]
+    first = items[1] if len(items) > 1 else None
+    # Culture playlists are sequences (soloist piece -> handles -> improvisation -> ...) and
+    # restart from the top every time the music switch comes back to them, so EU4 tracks
+    # must be offered where the cycle starts: the first random pool (the soloist pieces)
+    pool = next((k for k, it in enumerate(items) if it[2] >= 2 and it[3] in (2, 3)), None)
+    if join_pool and first and first[2] > 0 and first[3] in (2, 3) and _subtree_end(items, 1) == 2 + first[2]:
+        # WAR/PEACE: the root's first child is a flat random pool - join it
+        end = 2 + first[2]
+        first[2] += n
+        items[end:end] = leaves
+    elif pool is not None:
+        # Wrap the pool: random pick of "EU5 soloist piece" or "EU4 track". EU4 gets 50%,
+        # but no more than one soloist piece per EU4 track (a single EU4 track mustn't repeat every other time)
+        m = items[pool][2]
+        choice = [0, make_id(f"eu4_soundtrack_choice_{container_id}"), 2, 3, 1, 0, 0,
+                  items[pool][7], 0, 1, 0]
+        items[pool][7] = 50000
+        group[7] = 50000 * min(n, m) // m
+        end = _subtree_end(items, pool)
+        items[pool:end] = [choice] + items[pool:end] + [group] + leaves
+    else:
+        # No random pool: add one random pick of EU4 tracks as the last step of the root sequence
+        items[0][2] += 1
+        items += [group] + leaves
+    return content[:off] + pack_u32(len(items)) + b''.join(PL_ITEM.pack(*it) for it in items)
 
 # ─── DURATION / WEM HELPERS ─────────────────────────────────────────────────
 
@@ -463,15 +510,21 @@ def find_ogg(track: EU4Track, tmp_dir: Path) -> Optional[Path]:
 
 # ─── MAIN BUILD ─────────────────────────────────────────────────────────────
 
-# Culture playlist IDs with correct gaps
+# WAR/PEACE playlists: switch 0x1cb30afd on state group PlayerAtWar
+# maps True -> 0x290f1591 (mus_war) and False -> 0x3de374bf (mus_peace)
+WAR_PL = 0x290f1591
+PCE_PL = 0x3de374bf
+POOL_PLAYLISTS = (WAR_PL, PCE_PL)  # EU4 tracks join their random pool
+
+# Culture playlists: switch 0x0e3915aa on state group PlayerCulturePrimary
 CULTURE_PLAYLISTS = {
-    'european':      (0x172E4EBA, 95),
-    'east_asian':    (0x2AE87B0D, 95),
-    'african':       (0x2D1FE56A, 95),
-    'middle_east':   (0x177DFABD, 236),  # different structure
-    'indian':        (0x014173A7, 95),
-    'north_american':(0x0847DCF1, 95),
-    'south_american':(0x360B858E, 95),
+    'european':       0x172E4EBA,  # european_sfx       (north german soloists)
+    'east_asian':     0x2AE87B0D,  # east_asian_sfx     (chinese)
+    'african':        0x2D1FE56A,  # african_sfx        (ashanti)
+    'middle_east':    0x177DFABD,  # middle_east_sfx    (syrian)
+    'indian':         0x014173A7,  # indian_sfx         (deccan)
+    'north_american': 0x0847DCF1,  # north_american_sfx (iroquois)
+    'south_american': 0x360B858E,  # south_american_sfx (aztec)
 }
 REGION_TO_CULTURE = {
     'british_isles':'european','scandinavian':'european','french':'european',
@@ -479,52 +532,48 @@ REGION_TO_CULTURE = {
     'baltic':'european','russian':'european',
     'east_asian':'east_asian',
     'west_african':'african','east_african':'african',
-    'middle_eastern':'middle_east','ottoman':'middle_east','caucasian':'middle_east',
-    'south_asian':'indian','central_asian':'indian',
+    'caucasian':'european',           # georgian/armenian/circassian cultures have european_gfx
+    'middle_eastern':'middle_east','ottoman':'middle_east',
+    'central_asian':'middle_east',    # uzbek/turkmen/tatar/nogai/kyrgyz cultures have middle_east_gfx
+    'south_asian':'indian',
+    'south_east_asian':'indian',      # khmer/thai/burmese/malay: indian_gfx wins (priority 110)
     'north_american':'north_american',
     'south_american':'south_american',
+    'mesoamerican':'south_american',  # EU5 gives mesoamerican cultures south_american_gfx
 }
 
 def build():
     print("=" * 60)
     print("EU4 Soundtrack for EU5 - Build")
     print("=" * 60)
-    if not shutil.which('ffprobe') and not shutil.which('ffmpeg'):
-        print("ERROR: ffprobe/ffmpeg not found"); sys.exit(1)
     BANKS_PATH.mkdir(parents=True, exist_ok=True)
     MEDIA_PATH.mkdir(parents=True, exist_ok=True)
     tmp_dir = MOD_PATH / "_tmp_ogg"; tmp_dir.mkdir(exist_ok=True)
 
-    hirc_objects = []; war_ids = []; peace_ids = []
-    culture_ids  = {k: [] for k in CULTURE_PLAYLISTS}
+    hirc_objects = []
+    playlist_ids = {WAR_PL: [], PCE_PL: [], **{pl: [] for pl in CULTURE_PLAYLISTS.values()}}
     built_tracks = []; prefetch_entries = []
-    WAR_PL = 0x3de374bf; PCE_PL = 0x290f1591
 
     print(f"\nProcessing {len(TRACKS)} tracks...")
     for track in TRACKS:
         print(f"\n[{track.event_name}]")
-        ogg_path = find_ogg(track, tmp_dir)
-        if not ogg_path:
-            print("  SKIPPED: source not found"); continue
-
         wem_id  = make_id(track.event_name + "_wem")
         wem_path = MEDIA_PATH / f"{wem_id}.wem"
+        wdata = wem_path.read_bytes() if wem_path.exists() else None
 
-        if wem_path.exists():
-            wdata = wem_path.read_bytes()
-            if len(wdata) > 22 and wdata[20:22] == b'\xff\xff':
-                print("  WEM exists (Vorbis)")
-                dur = max(1.0, _wem_duration(wdata))
-            else:
-                # Old Wwise WEM — duration from OGG, old prefetch size stays valid
-                print("  WEM exists (old format)")
-                dur = max(1.0, _ogg_duration(ogg_path))
-            pref_size = min(PREFETCH_SIZE, len(wdata))
+        if wdata is not None and len(wdata) > 22 and wdata[20:22] == b'\xff\xff':
+            print("  WEM exists (Vorbis)")
+            dur = max(1.0, _wem_duration(wdata))
         else:
-            # WEM not generated yet — will be created by PS1 script on first launch
-            print("  WEM pending (PS1 will generate)")
+            ogg_path = find_ogg(track, tmp_dir)
+            if not ogg_path:
+                print("  SKIPPED: source not found"); continue
+            if not shutil.which('ffprobe'):
+                print("ERROR: ffprobe not found"); sys.exit(1)
+            # Old Wwise WEM, or WEM not generated yet (PS1 creates it on first launch)
+            print("  WEM exists (old format)" if wdata is not None else "  WEM pending (PS1 will generate)")
             dur = max(1.0, _ogg_duration(ogg_path))
-            pref_size = PREFETCH_SIZE  # all music tracks are > 8KB
+        pref_size = min(PREFETCH_SIZE, len(wdata)) if wdata is not None else PREFETCH_SIZE
 
         tid = make_id(track.event_name + "_track")
         sid = make_id(track.event_name + "_seg")
@@ -541,35 +590,28 @@ def build():
             make_event(eid, [uid, aid]),
         ]
 
+        def dynamic(suffix, playlist_id):
+            ds = make_id(track.event_name + suffix + '_dynseg')
+            dt = make_id(track.event_name + suffix + '_dyn_track')
+            hirc_objects.extend([make_music_track(dt, wem_id, pref_size, dur, ds),
+                                 make_music_segment_dynamic(ds, dt, dur, playlist_id)])
+            playlist_ids[playlist_id].append(ds)
+
         # WAR/PEACE dynamic
         if track.mood == 'war':
-            ds = make_id(track.event_name+'_dynseg'); dt = make_id(track.event_name+'_dyn_track')
-            hirc_objects += [make_music_track(dt,wem_id,pref_size,dur,ds), make_music_segment_dynamic(ds,dt,dur,WAR_PL)]
-            war_ids.append(ds)
+            dynamic('', WAR_PL)
         elif track.mood == 'peace':
-            ds = make_id(track.event_name+'_dynseg'); dt = make_id(track.event_name+'_dyn_track')
-            hirc_objects += [make_music_track(dt,wem_id,pref_size,dur,ds), make_music_segment_dynamic(ds,dt,dur,PCE_PL)]
-            peace_ids.append(ds)
+            dynamic('', PCE_PL)
         else:
-            wds=make_id(track.event_name+'_war_dynseg'); wdt=make_id(track.event_name+'_war_dyn_track')
-            pds=make_id(track.event_name+'_pce_dynseg'); pdt=make_id(track.event_name+'_pce_dyn_track')
-            hirc_objects += [
-                make_music_track(wdt,wem_id,pref_size,dur,wds), make_music_segment_dynamic(wds,wdt,dur,WAR_PL),
-                make_music_track(pdt,wem_id,pref_size,dur,pds), make_music_segment_dynamic(pds,pdt,dur,PCE_PL),
-            ]
-            war_ids.append(wds); peace_ids.append(pds)
+            dynamic('_war', WAR_PL)
+            dynamic('_pce', PCE_PL)
 
         # Culture dynamic
         if track.region and track.region in REGION_TO_CULTURE:
-            cult = REGION_TO_CULTURE[track.region]
-            pl_id, _ = CULTURE_PLAYLISTS[cult]
-            cds=make_id(track.event_name+'_cult_dynseg'); cdt=make_id(track.event_name+'_cult_dyn_track')
-            hirc_objects += [make_music_track(cdt,wem_id,pref_size,dur,cds), make_music_segment_dynamic(cds,cdt,dur,pl_id)]
-            culture_ids[cult].append(cds)
+            dynamic('_cult', CULTURE_PLAYLISTS[REGION_TO_CULTURE[track.region]])
 
-        if wem_path.exists():
-            pref_data = wem_path.read_bytes()[:pref_size]
-            prefetch_entries.append((wem_id, pref_data))
+        if wdata is not None:
+            prefetch_entries.append((wem_id, wdata[:pref_size]))
         built_tracks.append(track)
         print(f"  wem_id={wem_id}, dur={dur:.0f}s")
 
@@ -587,7 +629,7 @@ def build():
         cid=base[pos:pos+4]; sz=struct.unpack('<I',base[pos+4:pos+8])[0]
         sections.append((cid,sz,base[pos+8:pos+8+sz])); pos+=8+sz
 
-    out=b''
+    out=b''; patched=set()
     for cid,sz,chunk in sections:
         if cid==b'BKHD':
             guid=hashlib.md5(f'eu4_bnk_{logic_id}'.encode()).digest()
@@ -598,25 +640,20 @@ def build():
             for _ in range(orig):
                 ot=chunk[p]; os_=struct.unpack('<I',chunk[p+1:p+5])[0]
                 obj=chunk[p+5:p+5+os_]; oid=struct.unpack('<I',obj[:4])[0]
-                patched=False
-                if oid==WAR_PL and war_ids:
-                    pat=_patch_steprand_no_children(obj[4:],war_ids,189)
-                    raw.append(bytes([ot])+pack_u32(4+len(pat))+obj[:4]+pat); patched=True
-                elif oid==PCE_PL and peace_ids:
-                    pat=_patch_steprand_no_children(obj[4:],peace_ids,189)
-                    raw.append(bytes([ot])+pack_u32(4+len(pat))+obj[:4]+pat); patched=True
+                if ot==13 and playlist_ids.get(oid):
+                    pat=insert_playlist_leaves(obj[4:],oid,playlist_ids[oid],oid in POOL_PLAYLISTS)
+                    raw.append(bytes([ot])+pack_u32(4+len(pat))+obj[:4]+pat); patched.add(oid)
                 else:
-                    for cult,(pl_id,gap) in CULTURE_PLAYLISTS.items():
-                        if oid==pl_id and culture_ids[cult]:
-                            pat=_patch_steprand_no_children(obj[4:],culture_ids[cult],gap)
-                            raw.append(bytes([ot])+pack_u32(4+len(pat))+obj[:4]+pat); patched=True; break
-                if not patched: raw.append(chunk[p:p+5+os_])
+                    raw.append(chunk[p:p+5+os_])
                 p+=5+os_
             all_objs=raw+list(hirc_objects)
             nh=pack_u32(len(all_objs))+b''.join(all_objs)
             out+=b'HIRC'+pack_u32(len(nh))+nh
         else:
             out+=cid+pack_u32(sz)+chunk
+    missing_pl = [f"{pl:08x}" for pl, ids in playlist_ids.items() if ids and pl not in patched]
+    if missing_pl:
+        print(f"ERROR: playlists not found in {eu5_bnk.name}: {missing_pl}"); sys.exit(1)
 
     logic_path = BANKS_PATH / "eu4_soundtrack_music.bnk"
     with open(str(logic_path),'wb') as f: f.write(out)
@@ -634,12 +671,13 @@ def build():
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    hc = struct.unpack('<I',out[48+8:48+12])[0]
+    cult_counts = '  '.join(f"{name}: +{len(playlist_ids[pl])}" for name, pl in CULTURE_PLAYLISTS.items())
     print(f"\n{'='*60}")
     print(f"BUILD COMPLETE: {len(built_tracks)} tracks")
-    print(f"  eu4_soundtrack_music.bnk: {len(out)//1024}KB ({hc} HIRC objects)")
-    print(f"  eu4_soundtrack_media.bnk: {len(media_data)//1024}KB")
-    print(f"  WAR: +{len(war_ids)}  PEACE: +{len(peace_ids)}  CULTURE: +{sum(len(v) for v in culture_ids.values())}")
+    print(f"  eu4_soundtrack_music.bnk: {len(out)//1024}KB ({len(all_objs)} HIRC objects)")
+    print(f"  eu4_soundtrack_media.bnk: {len(media_data)//1024}KB ({len(prefetch_entries)} prefetch entries)")
+    print(f"  WAR: +{len(playlist_ids[WAR_PL])}  PEACE: +{len(playlist_ids[PCE_PL])}")
+    print(f"  CULTURE: {cult_counts}")
     print("="*60)
 
 if __name__ == '__main__':

@@ -13,9 +13,9 @@ Brings 179 tracks from Europa Universalis IV into EU5 — fully integrated into 
 - **At war** — EU4 war tracks play alongside EU5 music
 - **At peace** — EU4 ambient and atmospheric tracks
 - **Cultural context** — regional EU4 music matches your nation's culture group:
-  - European → British, French, HRE, Scandinavian, Russian, Iberian
-  - Ottoman/Persian/Egyptian/Caucasian → Middle Eastern
-  - Chinese/Japanese/SEA → East Asian
+  - European → British, French, HRE, Scandinavian, Russian, Iberian, Caucasian
+  - Ottoman/Persian/Egyptian/Arab/Central Asian → Middle Eastern
+  - Chinese/Japanese → East Asian, South-East Asia → Indian
   - Indian, African, American nations get their own regional tracks
 
 > EU4 track names won't appear in the Music Player list. The music plays automatically based on game state. You can still skip with the **Next** button. Intentional — keeps the mod multiplayer-compatible (no checksum change).
@@ -38,14 +38,14 @@ No Wwise, no Python.
 **Step 2.** Add to EU5 **Launch Options** in Steam:
 
 ```
-cmd /c "curl -sL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/launch.cmd & call %TEMP%\eu4launch.cmd %command%"
+cmd /c "curl -sfL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/launch.cmd & call %TEMP%\eu4launch.cmd %command%"
 ```
 
 **Step 3.** Launch EU5 → setup window converts all tracks (~2–5 min) → game starts.
 
 **Step 4.** In-game mods menu → enable **EU4 Soundtrack for EU5** → restart.
 
-After first conversion the launch command and FFmpeg are no longer required.
+After first conversion FFmpeg is no longer required. Keep the launch command: every launch it downloads the current setup script and rebuilds the sound banks from the tracks you have and the installed EU5 version (takes a second). Fixes are delivered this way — no Workshop update needed.
 
 ---
 
@@ -55,15 +55,15 @@ After first conversion the launch command and FFmpeg are no longer required.
 |----------|---------|-----------|
 | WAR | At war | +146 |
 | PEACE | At peace | +135 |
-| European culture | European nation | +43 |
-| Middle Eastern | Ottoman/Persian/etc. | +19 |
-| East Asian | Chinese/Japanese/etc. | +15 |
-| Indian | Indian/Central Asian | +5 |
+| European culture | European/Caucasian nation | +48 |
+| Middle Eastern | Ottoman/Persian/Arab/Central Asian | +19 |
+| East Asian | Chinese/Japanese/etc. | +13 |
+| Indian | Indian/South-East Asian | +6 |
 | African | African nations | +4 |
-| North American | Native American | +4 |
-| South American | Inca/South American | +1 |
+| North American | North American nations | +1 |
+| South American | Mesoamerican/South American | +4 |
 
-Regional tracks appear in both WAR/PEACE and their cultural playlist — ~2× playback frequency for matching cultures.
+Regional tracks appear in both WAR/PEACE and their cultural playlist. Only tracks with a converted WEM on the player's PC are added.
 
 ---
 
@@ -169,13 +169,17 @@ The `0` is the audio packet type bit (always 0). `prev_win`/`next_win` are previ
 
 ### Sound bank patching
 
-EU5's music system lives in `sb_music_logic.bnk` (Wwise v150 HIRC format, 3402 objects). The mod creates `eu4_soundtrack_music.bnk` loaded after EU5's bank via `SoundbanksInfo.json` — Wwise "last loaded wins" semantics for duplicate object IDs.
+EU5's music system lives in `sb_music_logic.bnk` (Wwise v150 HIRC format). `eu4_soundtrack_music.bnk` is a copy of it with patched playlists plus the EU4 objects.
 
-**WAR container** (`0x3de374bf`) / **PEACE container** (`0x290f1591`)  
-Each EU4 track adds a `MusicTrack` + `MusicSegment` pair as a leaf in the `MusicRandSeqCntr` StepRandom list. The patch only updates `numPlaylistItems` and the StepRandom leaf array — deliberately avoids updating `ulNumChilds` to prevent `AK_IDNotFound` (result:15) circular dependency errors.
+**Built on the player's PC.** A prebuilt bank references all 179 WEMs: when a playlist picked a track from a DLC the player doesn't own, Wwise played silence for the track's length, and the copied EU5 objects went stale with every EU5 patch. So `EU4_Soundtrack_Setup.ps1` (`BankBuilder` C# class) builds both banks on every launch from the installed EU5 `sb_music_logic.bnk`, the WEM files present in `Media/` (duration and prefetch size come from the WEM) and the track list (`$Tracks`: event, source, DLC, mood, culture), and writes them only if they changed. Updates therefore only need a new script on GitHub — `launch.cmd` downloads it on every launch. `BankBuilder` mirrors `build_mod.py`; with all WEMs present both produce byte-identical banks. The banks shipped in the Workshop item are only a fallback.
 
-**Cultural containers** (7 containers keyed by `stg_local_context_culture` state)  
-Regional EU4 tracks are added to the matching culture's `MusicRandSeqCntr`. EU5 has containers for European (68 tracks) and East Asian (27 tracks); the mod adds containers for other regions. Per-culture containers (aztec, iroquois, etc.) have 3–4 EU5 tracks each.
+**Playlists.** The playlist tree (`AkMusicRanSeqPlaylistItem`, 30 bytes each, pre-order) is the last field of a `MusicRanSeqCntr`, so it is located from the end of the object — no hardcoded offsets. Inserts only update item counts, never `ulNumChilds` (avoids `AK_IDNotFound` result:15 circular dependency errors).
+
+**WAR container** (`0x290f1591`) / **PEACE container** (`0x3de374bf`)  
+Verified via switch `0x1cb30afd` on state group `PlayerAtWar`: True → `0x290f1591`, False → `0x3de374bf`. EU4 leaves join the root's first child, the flat random pool of EU5 war/peace segments.
+
+**Cultural containers** (switch `0x0e3915aa` on state group `PlayerCulturePrimary`)  
+`european_sfx` → `0x172e4eba` (north german), `east_asian_sfx` → `0x2ae87b0d`, `african_sfx` → `0x2d1fe56a`, `middle_east_sfx` → `0x177dfabd`, `indian_sfx` → `0x014173a7`, `north_american_sfx` → `0x0847dcf1` (iroquois), `south_american_sfx` → `0x360b858e` (aztec; mesoamerican cultures use `south_american_gfx`). These playlists are sequences (soloist piece → handles → improvisation → ...) that restart from the top whenever the music switch returns to them (e.g. in Dynamic – All after war/peace music). So EU4 tracks are offered where the cycle starts: the first random pool (the soloist pieces) is wrapped in a new random node choosing between it and a random-step node with the EU4 tracks. EU4 gets 50%, but no more than one soloist piece per EU4 track (`weight = 50000 * min(n_eu4, n_pieces) / n_pieces`). The rest of EU5's structure stays intact.
 
 **HIRC object IDs**  
 Generated via FNV-1 hash: `event_name + "_wem"` → WEM file ID. EU4 tracks create: `mp_track`, `war_dyn_track`, `pce_dyn_track`, optionally `culture_dyn_track` — each with its own `MusicSegment` pointing to the same WEM file.
@@ -189,7 +193,7 @@ Copied from EU5 track `0x13771d69` (111 bytes, `numPlaylistItem=1`). Previous te
 
 `eu4_soundtrack_media.bnk` contains DIDX + DATA chunks: the first 8192 bytes of each WEM file stored inline. Wwise plays this while initiating streaming from disk. Without matching prefetch, Wwise cannot seamlessly transition → only prefetch audio plays then silence.
 
-The setup script rebuilds `media.bnk` from current WEM files whenever new WEMs are generated (`$done > 0`). `media.bnk` is **not** synced from GitHub — rebuilt locally to always match local WEM content. Supports mixed v1 (Wwise) + v2 (aoTuV) WEM files transparently.
+The setup script rebuilds `media.bnk` from the current WEM files on every launch and writes it only if it changed. DIDX entries are sorted by media ID, like in all EU5 media banks. Truncated WEMs and old Wwise-authored WEMs (v1.0) are converted again.
 
 ---
 
@@ -200,14 +204,14 @@ EU5's Wwise state group `mus_systemType` controls which playlists are active:
 | State | Behavior |
 |-------|----------|
 | `dynamic_cinematic` | WAR/PEACE only — most varied, recommended |
-| `dynamic_all` | WAR/PEACE + cultural simultaneously (cultural dominates for Europeans: 68+43 tracks) |
+| `dynamic_all` | WAR/PEACE + cultural simultaneously |
 | `dynamic_cultural` | Cultural only |
 | `dynamic_full` | All systems |
 | `static_cinematic` / `static_cultural` | Static playlists |
 
 The `MusicDensity` slider (0.0/0.5/1.0) exists in Jomini engine code but is **disabled** in EU5's GUI — always 1.0 (continuous music).
 
-EU5 uses `stg_local_context_culture` state for cultural routing. This state is set per-player based on culture. Non-European/East Asian cultures have no EU5 cultural container → fall through to WAR/PEACE only.
+EU5 routes cultural music by the `PlayerCulturePrimary` state (`*_sfx` values from `main_menu/music/audio_culture_types`, matched by each culture's `*_gfx` tag). Every base-game culture group has its own container; D008 adds `d008_byzantine_sfx` → `0x312d1324`.
 
 ---
 
@@ -225,7 +229,7 @@ All mod files are in `loading_screen/` — excluded from EU5's checksum manifest
 
 **"packed_codebooks.bin download failed"** — Check internet connection. The file (~74 KB) is downloaded from `github.com/hcs64/ww2ogg`
 
-**Only prefetch plays (brief audio then silence)** — Delete all `.wem` files from the mod's `Media/` folder and re-run the script. media.bnk needs to be rebuilt from current WEMs.
+**Only prefetch plays (brief audio then silence) / silent gaps** — Keep the launch option and start the game once: the script rebuilds both banks from the WEM files present.
 
 **Music not playing** — Make sure the mod is enabled and the game was restarted after enabling it
 
@@ -238,6 +242,15 @@ Converts audio from the user's own legally-owned EU4 installation. No audio file
 ---
 
 ## Changelog
+
+**v1.3** — fixes, delivered by the setup script (no Workshop update)
+- WAR/PEACE playlist IDs were swapped in `build_mod.py`: EU4 war tracks played at peace and vice versa
+- Sound banks are built on the player's PC from the installed EU5 bank and the WEMs actually present: no silence for missing DLCs / failed conversions, no stale copy of EU5's music objects after game patches
+- Cultural playlists were corrupted by fixed-offset inserts into nested sequences (EU4 tracks played back to back, EU5 items reparented); inserts now parse the playlist tree, and EU4 tracks are an alternative to the soloist piece at the start of the cultural cycle
+- media.bnk is rebuilt whenever it doesn't match the WEMs (v1.2 update restored a 155-entry media.bnk → 24 new tracks silent); DIDX sorted by ID
+- Regional routing checked against the `tags` of all EU5 cultures (`indian_sfx` has priority 110): Aztec/Mayan themes and Fine Day for Sacrifice → aztec (`south_american_sfx`) instead of iroquois; Caucasian tracks → european (georgian/armenian cultures have `european_gfx`) instead of middle_east; Hordes → middle_east (uzbek/tatar/nogai) instead of indian; South-East Asia tracks → indian (khmer/thai/burmese/malay) instead of east_asian
+- WEM conversion writes to `.part` first, truncated WEMs are converted again; the job uses the detected ffmpeg path; tools, ffmpeg and EU4 are only required when there is something to convert
+- `launch.cmd`: `curl -f` + temp file, so an HTTP error can't replace the cached setup script
 
 **v1.2** — 179 tracks
 - Added 24 previously missing tracks across 13 DLCs: Republican Music, Songs of War, Guns Drums & Steel Vol. 1–2, Songs of Exploration, Kairis Soundtrack, Songs of Regency, Egyptian, Persian, Caucasian, Native America, Central Asia, Central Europe
