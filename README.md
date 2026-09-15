@@ -25,9 +25,8 @@ Brings 179 tracks from Europa Universalis IV into EU5 — fully integrated into 
 ## Requirements
 
 - **Europa Universalis IV** installed on the same Steam account
-- **FFmpeg** — `winget install ffmpeg`
-
-No Wwise, no Python.
+- **Windows:** **FFmpeg** — `winget install ffmpeg`. No Wwise, no Python.
+- **Linux / Steam Deck** (EU5 via Proton): **python3** and **FFmpeg with libvorbis** (`sudo apt install ffmpeg`, `sudo pacman -S ffmpeg`, ...). SteamOS ships python3 but not FFmpeg.
 
 ---
 
@@ -46,6 +45,16 @@ cmd /c "curl -sfL -o %TEMP%\eu4launch.cmd https://raw.githubusercontent.com/komo
 **Step 4.** In-game mods menu → enable **EU4 Soundtrack for EU5** → restart.
 
 After first conversion FFmpeg is no longer required. Keep the launch command: every launch it downloads the current setup script and rebuilds the sound banks from the tracks you have and the installed EU5 version (takes a second). Fixes are delivered this way — no Workshop update needed.
+
+### Linux / Steam Deck
+
+Same steps, with this **Launch Options** line instead:
+
+```
+bash -c 'f="$HOME/.cache/eu4snd_setup.sh"; mkdir -p "$HOME/.cache"; curl -sfL -o "$f.tmp" https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/EU4_Soundtrack_Setup.sh && mv "$f.tmp" "$f"; bash "$f" "$@"' _ %command%
+```
+
+`EU4_Soundtrack_Setup.sh` does exactly what the Windows script does, then starts the game. Steam shows no console for launch options: progress and errors appear in a `zenity` dialog when available, and everything is logged to `~/.cache/eu4snd/setup.log`. Steam libraries are found via `libraryfolders.vdf` (native, Flatpak and Snap Steam); extra library paths can be given in `EU4SND_STEAM_LIBRARIES` (colon-separated).
 
 ---
 
@@ -80,13 +89,13 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 ### Conversion pipeline
 
 ```
-EU4 OGG → ffmpeg (PCM pipe) → oggenc2/aoTuV (OGG floor1) → C# WEM builder → Wwise WEM
+Windows: EU4 OGG → ffmpeg (PCM pipe) → oggenc2/aoTuV -q 6 → C# WEM builder     → Wwise WEM
+Linux:   EU4 OGG → ffmpeg libvorbis -q:a 6 (48 kHz stereo)  → Python WEM builder → Wwise WEM
 ```
 
-ffmpeg pipes PCM directly to oggenc2 stdin — no temp WAV on disk.
+ffmpeg pipes PCM directly to oggenc2 stdin — no temp WAV on disk. On Linux the OGG (or the DLC zip entry) is piped through ffmpeg in memory.
 
-**Why aoTuV specifically?**  
-Standard libvorbis (all quality levels) produces **Vorbis floor type 0**. Wwise's decoder only supports **floor type 1** (aoTuV encoding). The setup script auto-downloads `oggenc2.exe` (aoTuV b6.03, ~1.4 MB) from RareWares on first run.
+**Encoder.** The WEM builder needs Vorbis floor type 1 and codebooks that exist in `packed_codebooks_aoTuV_603.bin`. On Windows the setup script auto-downloads `oggenc2.exe` (aoTuV b6.03, ~1.4 MB) from RareWares on first run. libvorbis 1.3.7 at quality 6 (48 kHz stereo) writes a byte-identical setup header (same 44 codebooks, IDs 50–93, floor type 1), so Linux uses ffmpeg's libvorbis encoder directly. The Python WEM builder produces byte-identical output to the C# one for the same OGG.
 
 **packed_codebooks_aoTuV_603.bin**  
 598 pre-encoded Vorbis codebooks from the ww2ogg project. aoTuV at quality 6 produces codebooks that map 1:1 into this library (IDs 50–93 for 48 kHz stereo). Each codebook stored as Wwise inline format (4-bit dims, 14-bit entries). The C# lookup table matches each OGG codebook against the library by canonical byte comparison. Downloaded from `hcs64/ww2ogg` on first run (~74 KB), validated by exact file size.

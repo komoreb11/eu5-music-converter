@@ -51,6 +51,10 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [b]Step 4.[/b] Once in the game, open the mods menu → enable [b]EU4 Soundtrack for EU5[/b] → restart the game.
 
+[b]Linux / Steam Deck (Proton):[/b] requires python3 and FFmpeg with libvorbis (SteamOS has python3, FFmpeg must be installed). Use this launch option instead:
+[code]bash -c 'f="$HOME/.cache/eu4snd_setup.sh"; mkdir -p "$HOME/.cache"; curl -sfL -o "$f.tmp" https://raw.githubusercontent.com/komoreb11/eu5-music-converter/main/EU4_Soundtrack_Setup.sh && mv "$f.tmp" "$f"; bash "$f" "$@"' _ %command%[/code]
+Progress and errors are shown in a dialog when zenity is available and logged to [code]~/.cache/eu4snd/setup.log[/code].
+
 After the initial conversion FFmpeg is no longer required. [b]Keep the launch command[/b]: on every launch it updates the setup and rebuilds the mod's sound banks from the tracks you actually have and the current EU5 version (takes a second), so fixes, EU5 patches and newly bought DLCs just work.
 
 [hr]
