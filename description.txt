@@ -54,13 +54,13 @@ Or download from [url=https://ffmpeg.org]ffmpeg.org[/url] and add to PATH.
 
 [b]Step 4.[/b] Once in the game, open the mods menu → enable [b]EU4 Soundtrack for EU5[/b] → restart the game.
 
-After the initial conversion FFmpeg is no longer required. [b]Keep the launch option[/b]: on every launch it takes a second to update the setup and rebuild the mod's sound banks from the tracks you actually have and the current EU5 version — so mod fixes, EU5 patches and newly bought DLCs just work.
+After the first conversion FFmpeg is no longer required. [b]Keep the launch option[/b]: it delivers mod updates and keeps the sound banks in sync with your tracks, EU5 patches and new DLCs.
 
 [hr]
 
 [h2]How the music works[/h2]
 
-EU5 uses Wwise for its entire audio system. The setup builds the mod's Wwise sound banks on your PC from your EU5 installation — adding EU4 track references into EU5's existing WAR, PEACE, and cultural playlists. No EU5 tracks are replaced or removed. Only tracks you actually have are added, so there are no silent gaps for DLCs you don't own.
+The setup builds the mod's Wwise sound banks on your PC from your EU5 installation, adding EU4 tracks to EU5's WAR, PEACE and cultural playlists. No EU5 tracks are replaced. Only tracks you have are added — no silent gaps for DLCs you don't own.
 
 [list]
 [*][b]WAR[/b] — +146 EU4 tracks (player at war)
@@ -76,9 +76,9 @@ EU5 uses Wwise for its entire audio system. The setup builds the mod's Wwise sou
 
 Neutral and discovery tracks appear in both WAR and PEACE playlists, so they play regardless of war state.
 
-Regional tracks (British, Ottoman, East Asian, etc.) are added to both the WAR/PEACE playlists and their matching cultural playlist. In the cultural playlist an EU4 regional track is picked instead of an EU5 soloist piece at the start of the cultural music cycle (about half the time), and the rest of EU5's cultural music plays as designed.
+Regional tracks are also added to their cultural playlist, where they alternate with EU5 soloist pieces.
 
-[b]Music Player modes:[/b] Dynamic – All mixes war/peace and cultural music, Dynamic – Cinematic plays war/peace music, Dynamic – Cultural and Static – Cultural play mostly cultural music. Static – Cinematic uses EU5's own fixed playlist without EU4 tracks.
+[b]Music Player modes:[/b] Dynamic – All mixes both, Dynamic – Cinematic is war/peace only, Dynamic/Static – Cultural are mostly cultural. Static – Cinematic has no EU4 tracks.
 
 [hr]
 
@@ -96,54 +96,39 @@ Base Game · Songs of the New World · Republican Music · Songs of War · Guns 
 
 [b]"Game crashes when clicking Accept with mod checked in the mod menu"[/b] — Try changing the mod's load order. Place EU4 Soundtrack for EU5 earlier in the list — this usually fixes the crash or try another order. After changes restart the game as well.
 
-[b]"FFmpeg not found"[/b] — Windows: run [code]winget install ffmpeg[/code] in PowerShell, then restart Steam. Linux: install FFmpeg with your package manager, then restart Steam.
+[b]"FFmpeg not found"[/b] — Install FFmpeg (see Requirements), then restart Steam.
 
 [b]"EU4 not found" / "EU5 not found"[/b] — The script finds the games automatically through your Steam libraries. Make sure both are installed on the same Steam account.
 
-[b]"packed_codebooks.bin download failed"[/b] — Check your internet connection. The file (~74 KB) is downloaded automatically on first run from github.com/hcs64/ww2ogg
+[b]"packed_codebooks.bin download failed"[/b] — Check your internet connection.
 
-[b]Only a brief sound then silence / silent gaps[/b] — Make sure the launch option is still set and start the game once: the setup rebuilds both sound banks from your converted tracks.
+[b]Brief sound then silence / silent gaps[/b] — Make sure the launch option is set and start the game once.
 
 [b]Music not playing[/b] — Make sure the mod is enabled and the game was restarted after enabling it
 
-[b]Linux: nothing seems to happen[/b] — Steam shows no console for launch options. Progress and errors appear in a dialog when zenity is installed; the full output is always in [code]~/.cache/eu4snd/setup.log[/code].
+[b]Linux: nothing seems to happen[/b] — Steam shows no console; see [code]~/.cache/eu4snd/setup.log[/code].
 
 [hr]
 
 [h2]Update notes[/h2]
 
-Updates are delivered through the setup script — keep the launch option and just start the game. The sound banks are rebuilt automatically and only new tracks are converted, everything already done is skipped.
+Updates come through the setup script — keep the launch option and just start the game. Only new tracks are converted.
 
 [h3]Changelog[/h3]
 
-[b]v1.3[/b] — fixes, Linux support (delivered by the setup script, just start the game with the launch option)
+[b]v1.3[/b] — fixes + Linux (via the setup script, just start the game)
 [list]
-[*]Fixed: war and peace music were swapped (EU4 war tracks played at peace and vice versa)
-[*]Fixed: silence for players without every music DLC — the sound banks are now built on your PC and only contain tracks you have
-[*]Fixed: silence for the 24 tracks added in v1.2 (media bank was not rebuilt after the mod update)
-[*]Fixed: cultural playlists were scrambled; EU4 regional tracks now alternate with EU5 soloist pieces at the start of the cultural cycle, so they are actually heard
-[*]Fixed: the mod no longer overrides EU5 music data with an outdated copy after game patches
-[*]Fixed regional music: Aztec and Mayan themes play for Mesoamerican cultures, Caucasian tracks for Georgians/Armenians, Central Asian hordes for Uzbeks/Tatars, South-East Asian tracks for Khmer/Thai/Burmese/Malay nations
-[*]Interrupted conversions no longer leave broken tracks behind; FFmpeg is only needed when there is something to convert
-[*]New: Linux / Steam Deck (Proton) setup script
+[*]War and peace music were swapped
+[*]No more silence without every music DLC or after mod updates — sound banks are built on your PC from the tracks you have
+[*]Cultural playlists fixed, EU4 regional tracks are now actually heard
+[*]No outdated EU5 music data after game patches
+[*]Regional fixes: Aztec/Maya, Caucasus, Central Asia, South-East Asia
+[*]Linux / Steam Deck support
 [/list]
 
-[b]v1.2[/b] — 179 tracks
-[list]
-[*]Added 24 previously missing tracks: Republican Music (2), Songs of War (2), Guns Drums & Steel Vol. 1–2 (5), Songs of Exploration (2), Kairis Soundtrack (2), Songs of Regency (2), Egyptian (2), Persian (2), Caucasian (2), Native America (1), Central Asia (1), Central Europe (1)
-[/list]
-
-[b]v1.1[/b] — 155 tracks, no Wwise
-[list]
-[*]Wwise Authoring no longer required — setup script now handles full conversion automatically
-[*]Required tools (oggenc2, packed_codebooks) downloaded automatically on first run
-[*]Only FFmpeg needed
-[/list]
-
-[b]v1.0[/b] — 155 tracks
-[list]
-[*]Initial release — required Wwise Authoring + FFmpeg + setup script
-[/list]
+[b]v1.2[/b] — 179 tracks: added 24 missing tracks from 12 DLCs
+[b]v1.1[/b] — Wwise no longer required, only FFmpeg
+[b]v1.0[/b] — initial release, 155 tracks
 
 [hr]
 
